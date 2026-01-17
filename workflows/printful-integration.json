@@ -1,0 +1,154 @@
+{
+  "name": "Printful Product Upload Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "printful-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "printful-upload"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "product_name",
+              "name": "product_name",
+              "value": "={{ $json.body.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "design_url",
+              "name": "design_url",
+              "value": "={{ $json.body.design_url }}",
+              "type": "string"
+            },
+            {
+              "id": "price",
+              "name": "price",
+              "value": "={{ $json.body.price || '29.99' }}",
+              "type": "string"
+            },
+            {
+              "id": "description",
+              "name": "description",
+              "value": "={{ $json.body.description || 'Premium print-on-demand t-shirt with unique design' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printful.com/sync/products",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ahwHiVuJt86gDyENW6vBvdLcCDnZPJiHlSfXzwkm"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"sync_product\": {\n    \"name\": $json.product_name,\n    \"thumbnail\": $json.design_url\n  },\n  \"sync_variants\": [\n    {\n      \"retail_price\": $json.price,\n      \"variant_id\": 4011,\n      \"files\": [\n        {\n          \"url\": $json.design_url,\n          \"type\": \"default\"\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "id": "printful-create",
+      "name": "Create Printful Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "printful_id",
+              "name": "printful_product_id",
+              "value": "={{ $json.result.id }}",
+              "type": "number"
+            },
+            {
+              "id": "store_url",
+              "name": "store_url",
+              "value": "={{ $json.result.external_id }}",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "SUCCESS",
+              "type": "string"
+            },
+            {
+              "id": "product_name",
+              "name": "product_name",
+              "value": "={{ $('Parse Input').item.json.product_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"status\": $json.status,\n  \"printful_product_id\": $json.printful_product_id,\n  \"product_name\": $json.product_name,\n  \"store_url\": $json.store_url,\n  \"message\": \"Product uploaded to Printful successfully! Ready to sell!\"\n} }}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{"node": "Parse Input", "type": "main", "index": 0}]]
+    },
+    "Parse Input": {
+      "main": [[{"node": "Create Printful Product", "type": "main", "index": 0}]]
+    },
+    "Create Printful Product": {
+      "main": [[{"node": "Format Output", "type": "main", "index": 0}]]
+    },
+    "Format Output": {
+      "main": [[{"node": "Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null
+}
