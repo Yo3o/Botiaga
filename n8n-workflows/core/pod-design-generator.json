@@ -1,0 +1,392 @@
+{
+  "name": "POD Design Generator - DALL-E 3",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pod-designs",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "pod-design-generator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "input-theme",
+              "name": "theme",
+              "value": "={{ $json.body.theme }}",
+              "type": "string"
+            },
+            {
+              "id": "input-count",
+              "name": "count",
+              "value": "={{ $json.body.count || 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "input-style",
+              "name": "style",
+              "value": "={{ $json.body.style || 'modern, clean, professional' }}",
+              "type": "string"
+            },
+            {
+              "id": "input-product-type",
+              "name": "product_type",
+              "value": "={{ $json.body.product_type || 't-shirt' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a professional t-shirt design prompt engineer. Create optimized DALL-E 3 prompts for print-on-demand products.\\n\\nRules:\\n1. Keep designs simple and bold (good for printing)\\n2. Use clear, vibrant colors\\n3. Avoid small details (minimum 1024x1024 resolution)\\n4. Focus on centered, eye-catching compositions\\n5. No text in designs (will be added separately)\\n6. Suitable for dark and light backgrounds\\n\\nYour output must be a single DALL-E 3 prompt (max 400 characters) that will create a professional print-ready design.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Theme: {{ $json.theme }}\\nStyle: {{ $json.style }}\\nProduct: {{ $json.product_type }}\\n\\nGenerate ONE optimized DALL-E 3 prompt for a print-on-demand design.\"\n    }\n  ],\n  \"temperature\": 0.9,\n  \"max_tokens\": 200\n}",
+        "options": {}
+      },
+      "id": "generate-prompt",
+      "name": "Generate DALL-E Prompt (GPT-4o)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "extract-prompt",
+              "name": "optimized_prompt",
+              "value": "={{ $json.choices[0].message.content.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-prompt",
+      "name": "Extract Optimized Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"dall-e-3\",\n  \"prompt\": \"{{ $json.optimized_prompt }}\",\n  \"n\": 1,\n  \"size\": \"1024x1024\",\n  \"quality\": \"standard\",\n  \"response_format\": \"url\"\n}",
+        "options": {}
+      },
+      "id": "call-dalle",
+      "name": "Generate Image (DALL-E 3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "image-url",
+              "name": "image_url",
+              "value": "={{ $json.data[0].url }}",
+              "type": "string"
+            },
+            {
+              "id": "revised-prompt",
+              "name": "revised_prompt",
+              "value": "={{ $json.data[0].revised_prompt || $('Extract Optimized Prompt').item.json.optimized_prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "original-theme",
+              "name": "original_theme",
+              "value": "={{ $('Parse Input').item.json.theme }}",
+              "type": "string"
+            },
+            {
+              "id": "design-id",
+              "name": "design_id",
+              "value": "=DESIGN-{{ $now.toUnixInteger() }}",
+              "type": "string"
+            },
+            {
+              "id": "product-type",
+              "name": "product_type",
+              "value": "={{ $('Parse Input').item.json.product_type }}",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "ready",
+              "type": "string"
+            },
+            {
+              "id": "cost",
+              "name": "cost_usd",
+              "value": 0.04,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "count-gt-1",
+              "leftValue": "={{ $('Parse Input').item.json.count }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-loop",
+      "name": "Need More Designs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "=[\n  {\n    \"design_id\": {{ $json.design_id }},\n    \"theme\": {{ $json.original_theme }},\n    \"prompt\": {{ $json.optimized_prompt || $json.revised_prompt }},\n    \"image_url\": {{ $json.image_url }},\n    \"product_type\": {{ $json.product_type }},\n    \"status\": \"ready\",\n    \"cost_usd\": 0.04,\n    \"resolution\": \"1024x1024\",\n    \"format\": \"PNG\",\n    \"print_ready\": true,\n    \"next_steps\": [\n      \"Download image from URL\",\n      \"Upload to Printful\",\n      \"Create product mockups\",\n      \"Generate marketing campaign\"\n    ]\n  }\n]",
+        "options": {}
+      },
+      "id": "response-single",
+      "name": "Response (Single Design)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "loopOverInput": false,
+        "numberOfTimesToRepeat": "={{ $('Parse Input').item.json.count - 1 }}",
+        "options": {}
+      },
+      "id": "loop-node",
+      "name": "Loop for Multiple Designs",
+      "type": "n8n-nodes-base.loop",
+      "typeVersion": 1.1,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge-designs",
+      "name": "Merge All Designs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2000, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response-multiple",
+      "name": "Response (Multiple Designs)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 200]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Generate DALL-E Prompt (GPT-4o)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate DALL-E Prompt (GPT-4o)": {
+      "main": [
+        [
+          {
+            "node": "Extract Optimized Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Optimized Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Image (DALL-E 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image (DALL-E 3)": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Need More Designs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need More Designs?": {
+      "main": [
+        [
+          {
+            "node": "Loop for Multiple Designs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response (Single Design)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop for Multiple Designs": {
+      "main": [
+        [
+          {
+            "node": "Generate DALL-E Prompt (GPT-4o)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge All Designs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Designs": {
+      "main": [
+        [
+          {
+            "node": "Response (Multiple Designs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}
