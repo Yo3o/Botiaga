@@ -1,0 +1,88 @@
+{
+  "total": 10,
+  "successful": 10,
+  "failed": 0,
+  "elapsed_seconds": 78.70709300041199,
+  "products": [
+    {
+      "success": true,
+      "theme": "Minimalist mountain landscape at sunrise",
+      "design_id": "POD-1768683145",
+      "printful_id": 414733586,
+      "price": "27.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Cyberpunk samurai warrior",
+      "design_id": "POD-1768683145",
+      "printful_id": 414733587,
+      "price": "32.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Retro synthwave sunset with palm trees",
+      "design_id": "POD-1768683145",
+      "printful_id": 414733593,
+      "price": "29.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Abstract geometric lion portrait",
+      "design_id": "POD-1768683163",
+      "printful_id": 414733606,
+      "price": "31.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Coffee addict penguin with espresso machine",
+      "design_id": "POD-1768683165",
+      "printful_id": 414733615,
+      "price": "28.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Retro gaming pixel art arcade",
+      "design_id": "POD-1768683174",
+      "printful_id": 414733638,
+      "price": "29.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Yoga cat in tree pose meditation",
+      "design_id": "POD-1768683181",
+      "printful_id": 414733666,
+      "price": "27.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Space exploration rocket launch",
+      "design_id": "POD-1768683184",
+      "printful_id": 414733668,
+      "price": "30.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Tropical beach sunset with surfboard",
+      "design_id": "POD-1768683193",
+      "printful_id": 414733677,
+      "price": "28.99",
+      "cost": 0.07
+    },
+    {
+      "success": true,
+      "theme": "Steampunk octopus inventor",
+      "design_id": "POD-1768683203",
+      "printful_id": 414733705,
+      "price": "31.99",
+      "cost": 0.07
+    }
+  ]
+}
