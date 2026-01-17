@@ -1,0 +1,116 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    N8N WORKFLOW IMPORT CHECKLIST                          ║
+║                    Follow these exact steps                               ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+✅ STEP 1: Open n8n Cloud
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Open browser: https://juozas.app.n8n.cloud
+2. Login with your credentials
+3. You should see your dashboard
+
+
+✅ STEP 2: Import Workflow #1 - Design Generator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "+" button (top left corner)
+2. Select "Import from file"
+3. Navigate to: /tmp/botiaga-activated-workflows/
+4. Select file: pod-design-generator.json
+5. Click "Import"
+6. Wait for workflow to load
+7. Click "Save" (top right)
+8. Toggle "Active" switch (top right) - should turn GREEN
+9. Check webhook status - should show "Listening"
+10. Note webhook URL: /webhook/pod-designs
+
+☑ Workflow #1 imported and active
+
+
+✅ STEP 3: Import Workflow #2 - Marketing Automation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "+" button
+2. Select "Import from file"
+3. Select file: marketing-automation-agent.json
+4. Click "Import"
+5. Click "Save"
+6. Toggle "Active" - should turn GREEN
+7. Check webhook: /webhook/marketing-auto
+
+☑ Workflow #2 imported and active
+
+
+✅ STEP 4: Import Workflow #3 - Shopify Integration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "+" button
+2. Select "Import from file"
+3. Select file: shopify-integration-agent.json
+4. Click "Import"
+5. Click "Save"
+6. Toggle "Active" - should turn GREEN
+7. Check webhook: /webhook/shopify-upload
+
+☑ Workflow #3 imported and active
+
+⚠️  NOTE: This workflow will show placeholders for Shopify/Printful
+   credentials. This is NORMAL. You can configure these later.
+
+
+✅ STEP 5: Import Workflow #4 - Complete Pipeline
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Click "+" button
+2. Select "Import from file"
+3. Select file: complete-pod-orchestrator.json
+4. Click "Import"
+5. Click "Save"
+6. Toggle "Active" - should turn GREEN
+7. Check webhook: /webhook/pod-complete
+
+☑ Workflow #4 imported and active
+
+
+✅ STEP 6: Verify All Workflows Active
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Go to "Workflows" page and verify:
+
+☑ pod-design-generator - Active (green)
+☑ marketing-automation-agent - Active (green)
+☑ shopify-integration-agent - Active (green)
+☑ complete-pod-orchestrator - Active (green)
+
+
+✅ STEP 7: Test the System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After import, come back to terminal and run:
+
+    cd /root/Botiaga
+    ./test-activated-workflows.sh
+
+Expected output:
+    ✅ Design Generator: WORKING
+    ✅ Marketing Agent: WORKING
+    ⚠️  Shopify Integration: NEEDS CREDENTIALS (optional)
+    ✅ Complete Pipeline: WORKING
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 DONE! Your POD automation system is live!
+
+Next: Create your first product with:
+
+curl -X POST https://juozas.app.n8n.cloud/webhook/pod-complete \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "theme": "funny cat doing yoga",
+    "product_name": "Cat Yoga T-Shirt",
+    "count": 1,
+    "price": 29.99
+  }'
+
