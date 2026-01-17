@@ -1,0 +1,100 @@
+{
+  "name": "Business Factory Hub - Main Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "business-factory",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "hub-webhook",
+      "name": "Business Idea Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 400],
+      "webhookId": "business-factory-hub"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Generate unique session ID\nconst sessionId = 'BIZ-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);\n\n// Extract and validate input\nconst idea = input.idea || input.business_idea || '';\nconst context = input.context || {};\nconst budget = context.budget || 'moderate';\nconst timeline = context.timeline || 'standard';\nconst legalEntity = context.legal_entity || 'GmbH';\nconst industry = context.industry || 'auto-detect';\n\nif (!idea || idea.trim().length < 10) {\n  return {\n    json: {\n      error: true,\n      message: 'Please provide a business idea with at least 10 characters',\n      session_id: sessionId\n    }\n  };\n}\n\nreturn {\n  json: {\n    session_id: sessionId,\n    idea: idea.trim(),\n    context: {\n      budget: budget,\n      timeline: timeline,\n      legal_entity: legalEntity,\n      industry: industry\n    },\n    status: 'INITIALIZED',\n    phase: 'CEO_ANALYSIS',\n    started_at: new Date().toISOString(),\n    phases_completed: [],\n    agent_outputs: {}\n  }\n};"
+      },
+      "id": "hub-init",
+      "name": "Initialize Business Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// CEO BRAIN - Analyze and Plan\nconst session = $input.first().json;\n\nif (session.error) {\n  return { json: session };\n}\n\nconst idea = session.idea.toLowerCase();\n\n// Complexity Assessment\nconst complexIndicators = {\n  high: ['ai', 'machine learning', 'blockchain', 'fintech', 'crypto', 'marketplace', 'platform', 'real-time'],\n  medium: ['saas', 'dashboard', 'api', 'automation', 'integration', 'analytics', 'subscription'],\n  low: ['landing', 'blog', 'portfolio', 'simple', 'basic', 'static']\n};\n\nlet complexity = 'medium';\nfor (const [level, keywords] of Object.entries(complexIndicators)) {\n  if (keywords.some(kw => idea.includes(kw))) {\n    complexity = level;\n    break;\n  }\n}\n\n// Domain Detection\nconst domainIndicators = {\n  ecommerce: ['shop', 'store', 'cart', 'payment', 'product', 'marketplace', 'sell'],\n  saas: ['saas', 'subscription', 'dashboard', 'analytics', 'tool', 'platform'],\n  fintech: ['finance', 'payment', 'banking', 'crypto', 'trading', 'investment'],\n  ai: ['ai', 'machine learning', 'ml', 'neural', 'nlp', 'automation'],\n  content: ['blog', 'media', 'news', 'content', 'publishing'],\n  social: ['social', 'community', 'network', 'messaging', 'chat']\n};\n\nlet domain = 'saas';\nfor (const [d, keywords] of Object.entries(domainIndicators)) {\n  if (keywords.some(kw => idea.includes(kw))) {\n    domain = d;\n    break;\n  }\n}\n\n// Risk Assessment\nconst risks = [];\nif (complexity === 'high') risks.push({ type: 'TECHNICAL', level: 'HIGH', mitigation: 'Consider phased MVP approach' });\nif (domain === 'fintech') risks.push({ type: 'REGULATORY', level: 'HIGH', mitigation: 'Consult with BaFin requirements early' });\nif (idea.includes('marketplace')) risks.push({ type: 'CHICKEN_EGG', level: 'MEDIUM', mitigation: 'Focus on one side of marketplace first' });\nif (session.context.timeline === 'fast') risks.push({ type: 'TIMELINE', level: 'MEDIUM', mitigation: 'Reduce MVP scope' });\n\n// Determine Required Agents\nconst requiredAgents = ['legal', 'finance', 'tech', 'design', 'marketing'];\n\n// Decision\nconst requiresHumanApproval = complexity === 'high' || domain === 'fintech' || risks.length > 2;\nconst decision = requiresHumanApproval ? 'REQUIRES_HUMAN_APPROVAL' : 'GO';\n\nconst ceoAnalysis = {\n  complexity: complexity,\n  domain: domain,\n  risks: risks,\n  required_agents: requiredAgents,\n  decision: decision,\n  reasoning: decision === 'GO' \n    ? 'Business idea is feasible with ' + complexity + ' complexity. Ready for parallel department execution.'\n    : 'High complexity or regulatory requirements detected. Human approval recommended before proceeding.',\n  estimated_phases: [\n    { phase: 1, name: 'Discovery & Planning', agents: ['ceo'], status: 'COMPLETED' },\n    { phase: 2, name: 'Department Analysis', agents: requiredAgents, status: 'PENDING' },\n    { phase: 3, name: 'Quality Review', agents: ['reflection'], status: 'PENDING' },\n    { phase: 4, name: 'Final Assembly', agents: ['ceo'], status: 'PENDING' }\n  ]\n};\n\nreturn {\n  json: {\n    ...session,\n    phase: 'DEPARTMENT_EXECUTION',\n    ceo_analysis: ceoAnalysis,\n    agent_outputs: { ceo: ceoAnalysis },\n    phases_completed: ['CEO_ANALYSIS']\n  }\n};"
+      },
+      "id": "hub-ceo",
+      "name": "CEO Analysis Brain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SIMULATE PARALLEL DEPARTMENT EXECUTION\n// In production, this would call actual sub-workflows\nconst session = $input.first().json;\n\nif (session.error) {\n  return { json: session };\n}\n\nconst businessContext = {\n  business_name: 'Project-' + session.session_id.split('-')[1],\n  industry: session.ceo_analysis.domain,\n  complexity: session.ceo_analysis.complexity,\n  business_type: session.context.legal_entity\n};\n\n// Simulate department outputs (in production, these would be actual sub-workflow calls)\nconst departmentOutputs = {\n  legal: {\n    agent: 'Legal Agent',\n    status: 'COMPLETED',\n    summary: {\n      documents_created: 5,\n      compliance_status: 'REQUIRES_ACTION',\n      risk_level: 'MEDIUM'\n    },\n    documents: ['Impressum', 'Datenschutz', 'AGB', 'Widerruf', 'Cookie'],\n    action_items: [\n      { priority: 1, action: 'Complete Impressum', deadline: 'Before launch' },\n      { priority: 1, action: 'Implement cookie consent', deadline: 'Before launch' }\n    ]\n  },\n  finance: {\n    agent: 'Finance Agent',\n    status: 'COMPLETED',\n    summary: {\n      year1_revenue: 85000,\n      months_to_breakeven: 8,\n      vat_required: true\n    },\n    pricing: { starter: 29, professional: 79, enterprise: 199 },\n    action_items: [\n      { priority: 1, action: 'Setup Stripe', deadline: 'Week 1' },\n      { priority: 1, action: 'Register for VAT', deadline: 'Before first sale' }\n    ]\n  },\n  tech: {\n    agent: 'Tech Agent',\n    status: 'COMPLETED',\n    summary: {\n      stack: 'Next.js + PostgreSQL',\n      architecture: 'Modular Monolith',\n      monthly_cost: '150-500 EUR'\n    },\n    components: ['Frontend', 'API', 'Database', 'Auth', 'Cache'],\n    action_items: [\n      { priority: 1, action: 'Setup GitHub repo', deadline: 'Day 1' },\n      { priority: 1, action: 'Configure CI/CD', deadline: 'Day 1' }\n    ]\n  },\n  design: {\n    agent: 'Design Agent',\n    status: 'COMPLETED',\n    summary: {\n      primary_color: '#2563EB',\n      typography: 'Inter',\n      style: 'Modern minimalist'\n    },\n    deliverables: ['Color palette', 'Typography', 'Logo guidelines', 'UI components'],\n    action_items: [\n      { priority: 1, action: 'Create logo', deadline: 'Week 1' },\n      { priority: 2, action: 'Design landing page', deadline: 'Week 1' }\n    ]\n  },\n  marketing: {\n    agent: 'Marketing Agent',\n    status: 'COMPLETED',\n    summary: {\n      launch_channels: 6,\n      pre_launch_activities: 8,\n      recommended_budget: '500-1500 EUR/month'\n    },\n    channels: ['Product Hunt', 'Twitter/X', 'LinkedIn', 'Hacker News', 'Email', 'SEO'],\n    action_items: [\n      { priority: 1, action: 'Build landing page', deadline: 'Week 1' },\n      { priority: 1, action: 'Setup email marketing', deadline: 'Week 1' }\n    ]\n  }\n};\n\nreturn {\n  json: {\n    ...session,\n    phase: 'QUALITY_REVIEW',\n    agent_outputs: {\n      ...session.agent_outputs,\n      ...departmentOutputs\n    },\n    phases_completed: [...session.phases_completed, 'DEPARTMENT_EXECUTION']\n  }\n};"
+      },
+      "id": "hub-departments",
+      "name": "Execute Department Agents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// QUALITY REVIEW & FINAL ASSEMBLY\nconst session = $input.first().json;\n\nif (session.error) {\n  return { json: session };\n}\n\nconst outputs = session.agent_outputs;\n\n// Aggregate all action items\nconst allActionItems = [];\nfor (const [agent, data] of Object.entries(outputs)) {\n  if (data.action_items) {\n    data.action_items.forEach(item => {\n      allActionItems.push({\n        ...item,\n        agent: agent.toUpperCase()\n      });\n    });\n  }\n}\n\n// Sort by priority\nallActionItems.sort((a, b) => a.priority - b.priority);\n\n// Calculate overall quality score\nconst completedAgents = Object.values(outputs).filter(o => o.status === 'COMPLETED').length;\nconst qualityScore = Math.round((completedAgents / 6) * 100);\n\n// Create executive summary\nconst executiveSummary = {\n  business_idea: session.idea,\n  session_id: session.session_id,\n  domain: session.ceo_analysis.domain,\n  complexity: session.ceo_analysis.complexity,\n  quality_score: qualityScore,\n  agents_completed: completedAgents,\n  total_action_items: allActionItems.length,\n  priority_1_items: allActionItems.filter(i => i.priority === 1).length,\n  risks_identified: session.ceo_analysis.risks.length,\n  recommended_next_steps: [\n    'Review all legal documents and complete with actual business data',\n    'Setup payment processing (Stripe recommended)',\n    'Initialize GitHub repository and CI/CD pipeline',\n    'Create brand assets based on design specifications',\n    'Build landing page and start email list collection'\n  ]\n};\n\n// Department summaries\nconst departmentSummaries = {};\nfor (const [agent, data] of Object.entries(outputs)) {\n  if (data.summary) {\n    departmentSummaries[agent] = data.summary;\n  }\n}\n\n// Final business plan\nconst businessPlan = {\n  executive_summary: executiveSummary,\n  department_summaries: departmentSummaries,\n  action_items: allActionItems,\n  timeline: {\n    week_1: allActionItems.filter(i => i.deadline && i.deadline.includes('Week 1') || i.deadline.includes('Day 1')),\n    week_2: allActionItems.filter(i => i.deadline && i.deadline.includes('Week 2')),\n    before_launch: allActionItems.filter(i => i.deadline && i.deadline.includes('launch')),\n    ongoing: allActionItems.filter(i => i.deadline && (i.deadline.includes('Month') || i.deadline.includes('days')))\n  },\n  risks: session.ceo_analysis.risks,\n  metadata: {\n    generated_at: new Date().toISOString(),\n    system_version: '2.0',\n    agents_used: Object.keys(outputs)\n  }\n};\n\nreturn {\n  json: {\n    session_id: session.session_id,\n    status: 'COMPLETED',\n    business_plan: businessPlan,\n    phases_completed: [...session.phases_completed, 'QUALITY_REVIEW', 'FINAL_ASSEMBLY'],\n    completed_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "hub-assemble",
+      "name": "Assemble Final Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "hub-respond",
+      "name": "Return Business Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 400]
+    }
+  ],
+  "connections": {
+    "Business Idea Webhook": {
+      "main": [[{"node": "Initialize Business Session", "type": "main", "index": 0}]]
+    },
+    "Initialize Business Session": {
+      "main": [[{"node": "CEO Analysis Brain", "type": "main", "index": 0}]]
+    },
+    "CEO Analysis Brain": {
+      "main": [[{"node": "Execute Department Agents", "type": "main", "index": 0}]]
+    },
+    "Execute Department Agents": {
+      "main": [[{"node": "Assemble Final Plan", "type": "main", "index": 0}]]
+    },
+    "Assemble Final Plan": {
+      "main": [[{"node": "Return Business Plan", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

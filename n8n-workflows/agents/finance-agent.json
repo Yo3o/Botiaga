@@ -1,0 +1,57 @@
+{
+  "name": "Finance Agent - Department Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "finance-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst businessId = input.business_id || 'BIZ-' + Date.now();\nconst task = input.task || 'full_financial_plan';\nconst requirements = input.requirements || {};\nconst businessName = requirements.business_name || 'New Business';\nconst businessType = requirements.business_type || 'SaaS';\nconst industry = requirements.industry || 'technology';\nconst revenueModel = requirements.revenue_model || 'subscription';\nconst targetMarket = requirements.target_market || 'B2B';\nconst estimatedMRR = requirements.estimated_mrr || 5000;\nconst teamSize = requirements.team_size || 2;\n\nreturn {\n  json: {\n    business_id: businessId,\n    task: task,\n    business_context: {\n      name: businessName,\n      type: businessType,\n      industry: industry,\n      revenue_model: revenueModel,\n      target_market: targetMarket,\n      estimated_mrr: estimatedMRR,\n      team_size: teamSize\n    },\n    processing_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "finance-init",
+      "name": "Initialize Finance Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst bc = context.business_context;\n\n// Revenue Projections (Monthly)\nconst monthlyGrowthRate = 0.15; // 15% MoM growth\nconst revenueProjection = [];\nlet currentMRR = bc.estimated_mrr;\nfor (let month = 1; month <= 12; month++) {\n  revenueProjection.push({\n    month: month,\n    mrr: Math.round(currentMRR),\n    arr: Math.round(currentMRR * 12),\n    growth_rate: monthlyGrowthRate\n  });\n  currentMRR *= (1 + monthlyGrowthRate);\n}\n\n// Cost Structure\nconst fixedCosts = {\n  salaries: bc.team_size * 5000,\n  office: 500,\n  software_tools: 500,\n  cloud_infrastructure: 300,\n  legal_accounting: 400,\n  insurance: 200,\n  total_fixed: 0\n};\nfixedCosts.total_fixed = Object.values(fixedCosts).reduce((a, b) => typeof b === 'number' ? a + b : a, 0) - fixedCosts.total_fixed;\n\nconst variableCosts = {\n  payment_processing: 0.029, // 2.9% Stripe\n  customer_support: 0.05,     // 5% of revenue\n  marketing: 0.20,            // 20% of revenue\n  total_variable_rate: 0.279\n};\n\n// Break-even Analysis\nconst monthlyBreakeven = fixedCosts.total_fixed / (1 - variableCosts.total_variable_rate);\nconst monthsToBreakeven = Math.ceil(Math.log(monthlyBreakeven / bc.estimated_mrr) / Math.log(1 + monthlyGrowthRate));\n\n// Pricing Recommendations\nconst pricingTiers = {\n  starter: { price: 29, features: ['Basic features', '1 user', 'Email support'] },\n  professional: { price: 79, features: ['All features', '5 users', 'Priority support', 'API access'] },\n  enterprise: { price: 199, features: ['Unlimited features', 'Unlimited users', '24/7 support', 'Custom integrations', 'SLA'] }\n};\n\n// German Tax Requirements\nconst taxRequirements = {\n  vat_rate: 0.19,\n  vat_registration_required: bc.estimated_mrr * 12 > 22000,\n  kleinunternehmer_eligible: bc.estimated_mrr * 12 <= 22000,\n  tax_filings: ['Umsatzsteuervoranmeldung (monthly/quarterly)', 'Einkommensteuererklärung (annual)', 'Gewerbesteuererklärung (annual)'],\n  accounting_method: bc.estimated_mrr * 12 > 600000 ? 'Bilanzierung' : 'EÜR'\n};\n\n// Payment Setup\nconst paymentSetup = {\n  recommended_provider: 'Stripe',\n  setup_requirements: ['Business verification', 'Bank account (IBAN)', 'Tax ID (Steuernummer)', 'VAT ID (if applicable)'],\n  supported_methods: ['Credit/Debit Cards', 'SEPA Direct Debit', 'Apple Pay', 'Google Pay', 'Klarna', 'PayPal'],\n  pricing_stripe: { transaction_fee: '1.5% + 0.25€ (EU cards)', 'non_eu': '2.9% + 0.25€' }\n};\n\nreturn {\n  json: {\n    business_id: context.business_id,\n    agent: 'FINANCE_AGENT',\n    status: 'FINANCIAL_MODEL_GENERATED',\n    revenue_projections: revenueProjection,\n    cost_structure: { fixed: fixedCosts, variable: variableCosts },\n    break_even_analysis: {\n      monthly_breakeven_revenue: Math.round(monthlyBreakeven),\n      months_to_breakeven: monthsToBreakeven,\n      current_mrr: bc.estimated_mrr\n    },\n    pricing_recommendations: pricingTiers,\n    tax_requirements: taxRequirements,\n    payment_setup: paymentSetup,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "finance-model",
+      "name": "Generate Financial Model",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\n// Calculate key metrics\nconst year1Revenue = result.revenue_projections.reduce((sum, m) => sum + m.mrr, 0);\nconst year1ARR = result.revenue_projections[11].arr;\nconst totalFixedCosts = result.cost_structure.fixed.total_fixed * 12;\nconst estimatedProfit = year1Revenue - totalFixedCosts - (year1Revenue * result.cost_structure.variable.total_variable_rate);\n\nconst actionItems = [\n  { priority: 1, action: 'Setup Stripe account', deadline: 'Week 1', responsible: 'CEO/Finance' },\n  { priority: 1, action: 'Register for VAT (if required)', deadline: 'Before first sale', responsible: 'Finance' },\n  { priority: 1, action: 'Setup accounting software (lexoffice/sevDesk)', deadline: 'Week 1', responsible: 'Finance' },\n  { priority: 2, action: 'Create pricing page', deadline: 'Week 2', responsible: 'Marketing/Design' },\n  { priority: 2, action: 'Setup invoice templates', deadline: 'Week 2', responsible: 'Finance' },\n  { priority: 3, action: 'Hire accountant/Steuerberater', deadline: 'Month 1', responsible: 'CEO' }\n];\n\nconst summary = {\n  agent: 'Finance Agent',\n  business_id: result.business_id,\n  status: 'COMPLETED',\n  year1_projected_revenue: Math.round(year1Revenue),\n  year1_arr: year1ARR,\n  months_to_breakeven: result.break_even_analysis.months_to_breakeven,\n  estimated_year1_profit: Math.round(estimatedProfit),\n  vat_required: result.tax_requirements.vat_registration_required\n};\n\nreturn {\n  json: {\n    summary: summary,\n    revenue_projections: result.revenue_projections,\n    cost_structure: result.cost_structure,\n    break_even: result.break_even_analysis,\n    pricing: result.pricing_recommendations,\n    taxes: result.tax_requirements,\n    payments: result.payment_setup,\n    action_items: actionItems,\n    next_steps: ['Setup payment processing', 'Configure pricing', 'Register for taxes', 'Setup accounting'],\n    metadata: { agent_version: '1.0.0', processed_at: result.timestamp, jurisdiction: 'Germany/EU' }\n  }\n};"
+      },
+      "id": "finance-output",
+      "name": "Format Finance Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Finance Context", "type": "main", "index": 0}]]
+    },
+    "Initialize Finance Context": {
+      "main": [[{"node": "Generate Financial Model", "type": "main", "index": 0}]]
+    },
+    "Generate Financial Model": {
+      "main": [[{"node": "Format Finance Output", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

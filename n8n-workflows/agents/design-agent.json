@@ -1,0 +1,57 @@
+{
+  "name": "Design Agent - Department Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "design-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst businessId = input.business_id || 'BIZ-' + Date.now();\nconst task = input.task || 'full_brand_design';\nconst requirements = input.requirements || {};\nconst businessName = requirements.business_name || 'New Brand';\nconst industry = requirements.industry || 'technology';\nconst targetAudience = requirements.target_audience || 'professionals';\nconst brandPersonality = requirements.brand_personality || ['modern', 'trustworthy', 'innovative'];\nconst competitors = requirements.competitors || [];\n\nreturn {\n  json: {\n    business_id: businessId,\n    task: task,\n    brand_context: {\n      name: businessName,\n      industry: industry,\n      target_audience: targetAudience,\n      personality: brandPersonality,\n      competitors: competitors\n    },\n    processing_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "design-init",
+      "name": "Initialize Design Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst brand = context.brand_context;\n\n// Color Palettes by Industry\nconst colorSchemes = {\n  technology: {\n    primary: '#2563EB', // Blue\n    secondary: '#7C3AED', // Purple\n    accent: '#06B6D4', // Cyan\n    neutral: '#1F2937',\n    background: '#F9FAFB'\n  },\n  fintech: {\n    primary: '#059669', // Green\n    secondary: '#0D9488', // Teal\n    accent: '#2563EB',\n    neutral: '#111827',\n    background: '#FFFFFF'\n  },\n  ecommerce: {\n    primary: '#DC2626', // Red\n    secondary: '#F59E0B', // Amber\n    accent: '#10B981',\n    neutral: '#374151',\n    background: '#FAFAFA'\n  },\n  saas: {\n    primary: '#4F46E5', // Indigo\n    secondary: '#8B5CF6', // Violet\n    accent: '#EC4899', // Pink\n    neutral: '#1E293B',\n    background: '#F8FAFC'\n  },\n  default: {\n    primary: '#3B82F6',\n    secondary: '#6366F1',\n    accent: '#14B8A6',\n    neutral: '#334155',\n    background: '#FFFFFF'\n  }\n};\n\nconst selectedColors = colorSchemes[brand.industry] || colorSchemes.default;\n\n// Typography Recommendations\nconst typography = {\n  headings: { font: 'Inter', weights: ['600', '700', '800'], fallback: 'system-ui, sans-serif' },\n  body: { font: 'Inter', weights: ['400', '500'], fallback: 'system-ui, sans-serif' },\n  code: { font: 'JetBrains Mono', weights: ['400', '500'], fallback: 'monospace' },\n  scale: {\n    h1: '2.25rem (36px)',\n    h2: '1.875rem (30px)',\n    h3: '1.5rem (24px)',\n    h4: '1.25rem (20px)',\n    body: '1rem (16px)',\n    small: '0.875rem (14px)'\n  }\n};\n\n// Logo Concepts\nconst logoGuidelines = {\n  style: brand.personality.includes('modern') ? 'Minimalist wordmark or abstract symbol' : 'Classic with icon',\n  colors: [selectedColors.primary, selectedColors.secondary],\n  formats_needed: ['SVG (vector)', 'PNG (transparent)', 'ICO (favicon)', 'Apple Touch Icon'],\n  variations: ['Full color', 'Single color (dark)', 'Single color (light)', 'Icon only'],\n  clear_space: 'Minimum 1x height of logo around all sides',\n  min_size: '24px height for digital, 10mm for print'\n};\n\n// UI Component Guidelines\nconst uiComponents = {\n  buttons: {\n    primary: { bg: selectedColors.primary, text: '#FFFFFF', hover: 'darken 10%', radius: '8px' },\n    secondary: { bg: 'transparent', text: selectedColors.primary, border: selectedColors.primary, radius: '8px' },\n    ghost: { bg: 'transparent', text: selectedColors.neutral, hover: selectedColors.background }\n  },\n  inputs: { border: '#E5E7EB', focus: selectedColors.primary, radius: '8px', padding: '12px 16px' },\n  cards: { bg: '#FFFFFF', border: '#E5E7EB', shadow: '0 1px 3px rgba(0,0,0,0.1)', radius: '12px' },\n  navigation: { style: 'Sticky header with blur backdrop', height: '64px' }\n};\n\n// Page Layouts\nconst layouts = {\n  landing_page: ['Hero with CTA', 'Features grid (3-4)', 'Social proof/testimonials', 'Pricing table', 'FAQ accordion', 'Footer with links'],\n  dashboard: ['Sidebar navigation', 'Top bar with search/user', 'Main content area', 'Stats cards', 'Data tables', 'Charts'],\n  auth_pages: ['Centered card layout', 'Social login options', 'Form validation states']\n};\n\nreturn {\n  json: {\n    business_id: context.business_id,\n    agent: 'DESIGN_AGENT',\n    status: 'BRAND_IDENTITY_CREATED',\n    color_palette: selectedColors,\n    typography: typography,\n    logo_guidelines: logoGuidelines,\n    ui_components: uiComponents,\n    page_layouts: layouts,\n    brand_personality: brand.personality,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "design-brand",
+      "name": "Create Brand Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nconst actionItems = [\n  { priority: 1, action: 'Create logo in all required formats', deadline: 'Week 1', responsible: 'Designer' },\n  { priority: 1, action: 'Setup design tokens in Figma/code', deadline: 'Week 1', responsible: 'Designer/Dev' },\n  { priority: 2, action: 'Create landing page mockup', deadline: 'Week 1', responsible: 'Designer' },\n  { priority: 2, action: 'Design core UI components', deadline: 'Week 2', responsible: 'Designer' },\n  { priority: 2, action: 'Create icon set', deadline: 'Week 2', responsible: 'Designer' },\n  { priority: 3, action: 'Design email templates', deadline: 'Week 3', responsible: 'Designer' },\n  { priority: 3, action: 'Create social media templates', deadline: 'Week 3', responsible: 'Marketing/Design' }\n];\n\nconst summary = {\n  agent: 'Design Agent',\n  business_id: result.business_id,\n  status: 'COMPLETED',\n  primary_color: result.color_palette.primary,\n  typography: result.typography.headings.font,\n  logo_style: result.logo_guidelines.style,\n  components_defined: Object.keys(result.ui_components).length,\n  layouts_defined: Object.keys(result.page_layouts).length\n};\n\nreturn {\n  json: {\n    summary: summary,\n    colors: result.color_palette,\n    typography: result.typography,\n    logo: result.logo_guidelines,\n    components: result.ui_components,\n    layouts: result.page_layouts,\n    action_items: actionItems,\n    next_steps: ['Create logo', 'Setup Figma file', 'Design landing page', 'Build component library'],\n    tools_recommended: ['Figma (design)', 'Tailwind CSS (implementation)', 'shadcn/ui (components)', 'Lucide Icons'],\n    metadata: { agent_version: '1.0.0', processed_at: result.timestamp }\n  }\n};"
+      },
+      "id": "design-output",
+      "name": "Format Design Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Design Context", "type": "main", "index": 0}]]
+    },
+    "Initialize Design Context": {
+      "main": [[{"node": "Create Brand Identity", "type": "main", "index": 0}]]
+    },
+    "Create Brand Identity": {
+      "main": [[{"node": "Format Design Output", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

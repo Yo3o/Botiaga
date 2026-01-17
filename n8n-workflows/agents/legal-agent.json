@@ -1,0 +1,57 @@
+{
+  "name": "Legal Agent - Department Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "legal-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst businessId = input.business_id || 'BIZ-' + Date.now();\nconst task = input.task || 'full_legal_setup';\nconst requirements = input.requirements || {};\nconst businessName = requirements.business_name || 'New Business';\nconst businessType = requirements.business_type || 'GmbH';\nconst industry = requirements.industry || 'technology';\nconst country = requirements.country || 'Germany';\n\nconst documentTypes = {\n  terms_of_service: { name: 'AGB', required: true, priority: 1 },\n  privacy_policy: { name: 'Datenschutz', required: true, priority: 1 },\n  impressum: { name: 'Impressum', required: true, priority: 1 },\n  cookie_policy: { name: 'Cookie-Richtlinie', required: true, priority: 2 },\n  cancellation_policy: { name: 'Widerrufsbelehrung', required: true, priority: 1 }\n};\n\nconst entityRequirements = {\n  GmbH: { min_capital: 25000, registration: 'Handelsregister', timeline_weeks: 4 },\n  UG: { min_capital: 1, registration: 'Handelsregister', timeline_weeks: 2 },\n  Einzelunternehmen: { min_capital: 0, registration: 'Gewerbeamt', timeline_weeks: 1 }\n};\n\nreturn {\n  json: {\n    business_id: businessId,\n    task: task,\n    business_context: { name: businessName, type: businessType, industry: industry, country: country },\n    document_requirements: documentTypes,\n    entity_requirements: entityRequirements[businessType] || entityRequirements.GmbH,\n    processing_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "legal-init",
+      "name": "Initialize Legal Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst businessName = context.business_context.name;\nconst businessType = context.business_context.type;\nconst industry = context.business_context.industry;\n\nconst documents = {\n  impressum: {\n    title: 'Impressum',\n    legal_basis: 'TMG § 5',\n    template: 'IMPRESSUM\\n\\nAngaben gemäß § 5 TMG:\\n\\n' + businessName + '\\n[Adresse]\\n[PLZ Ort]\\n\\nVertreten durch:\\n[Geschäftsführer]\\n\\nKontakt:\\nTelefon: [Tel]\\nE-Mail: [Email]\\n\\nRegistereintrag:\\nRegistergericht: [Amtsgericht]\\nRegisternummer: [HRB]\\n\\nUSt-IdNr.: [USt-IdNr]',\n    status: 'template_ready'\n  },\n  privacy_policy: {\n    title: 'Datenschutzerklärung',\n    legal_basis: 'DSGVO Art. 13, 14',\n    sections: ['Verantwortlicher', 'Datenerhebung', 'Weitergabe', 'Cookies', 'Analyse-Tools', 'Betroffenenrechte', 'Datensicherheit'],\n    status: 'requires_customization'\n  },\n  terms_of_service: {\n    title: 'AGB',\n    sections: ['Geltungsbereich', 'Vertragsschluss', 'Preise', 'Lieferung', 'Gewährleistung', 'Haftung', 'Widerruf', 'Schlussbestimmungen'],\n    status: 'requires_customization'\n  },\n  cancellation_policy: {\n    title: 'Widerrufsbelehrung',\n    legal_basis: 'BGB §§ 312g, 355',\n    period_days: 14,\n    template: 'Sie haben das Recht, binnen 14 Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen.',\n    status: 'template_ready'\n  },\n  cookie_policy: {\n    title: 'Cookie-Richtlinie',\n    legal_basis: 'TTDSG, DSGVO',\n    categories: ['essential', 'functional', 'analytics', 'marketing'],\n    status: 'requires_consent_tool'\n  }\n};\n\nconst complianceAssessment = {\n  gdpr_ready: false,\n  german_law_compliant: false,\n  missing_items: ['Complete Impressum', 'Cookie consent banner', 'Data subject request process', 'Data retention policy'],\n  risk_level: 'MEDIUM',\n  estimated_hours: 8\n};\n\nconst actionItems = [\n  { priority: 1, action: 'Complete Impressum with business data', deadline: 'Before launch', responsible: 'Legal/CEO' },\n  { priority: 1, action: 'Customize Privacy Policy', deadline: 'Before launch', responsible: 'Legal' },\n  { priority: 1, action: 'Implement Cookie Consent Tool', deadline: 'Before launch', responsible: 'Tech' },\n  { priority: 2, action: 'Create data processing documentation', deadline: 'Within 30 days', responsible: 'Legal' },\n  { priority: 2, action: 'Setup DSAR process', deadline: 'Within 30 days', responsible: 'Legal/Tech' },\n  { priority: 3, action: 'Conduct full GDPR audit', deadline: 'Within 90 days', responsible: 'External' }\n];\n\nreturn {\n  json: {\n    business_id: context.business_id,\n    agent: 'LEGAL_AGENT',\n    status: 'DOCUMENTS_GENERATED',\n    documents: documents,\n    compliance_assessment: complianceAssessment,\n    action_items: actionItems,\n    entity_setup: context.entity_requirements,\n    next_steps: ['Review templates', 'Gather business info', 'Implement cookie consent', 'Register entity'],\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "legal-generate",
+      "name": "Generate Legal Documents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nconst summary = {\n  agent: 'Legal Agent',\n  business_id: result.business_id,\n  status: 'COMPLETED',\n  documents_created: Object.keys(result.documents).length,\n  compliance_status: result.compliance_assessment.gdpr_ready ? 'COMPLIANT' : 'REQUIRES_ACTION',\n  high_priority_actions: result.action_items.filter(a => a.priority === 1).length,\n  total_actions: result.action_items.length,\n  risk_level: result.compliance_assessment.risk_level\n};\n\nreturn {\n  json: {\n    summary: summary,\n    documents: result.documents,\n    compliance: result.compliance_assessment,\n    action_items: result.action_items,\n    entity_setup: result.entity_setup,\n    next_steps: result.next_steps,\n    metadata: { agent_version: '1.0.0', processed_at: result.timestamp, jurisdiction: 'Germany/EU' }\n  }\n};"
+      },
+      "id": "legal-output",
+      "name": "Format Legal Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Legal Context", "type": "main", "index": 0}]]
+    },
+    "Initialize Legal Context": {
+      "main": [[{"node": "Generate Legal Documents", "type": "main", "index": 0}]]
+    },
+    "Generate Legal Documents": {
+      "main": [[{"node": "Format Legal Output", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

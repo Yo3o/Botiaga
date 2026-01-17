@@ -1,0 +1,116 @@
+{
+  "name": "Planning-Reflection Loop - Quality Assurance",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "reflection-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst agentOutput = input.agent_output || {};\nconst agentName = input.agent_name || 'Unknown Agent';\nconst requirements = input.original_requirements || {};\nconst phaseNumber = input.phase_number || 1;\nconst maxIterations = input.max_iterations || 3;\nconst currentIteration = input.current_iteration || 1;\n\nreturn {\n  json: {\n    agent_output: agentOutput,\n    agent_name: agentName,\n    requirements: requirements,\n    phase_number: phaseNumber,\n    max_iterations: maxIterations,\n    current_iteration: currentIteration,\n    evaluation_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "reflection-init",
+      "name": "Initialize Reflection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst output = context.agent_output;\nconst agentName = context.agent_name;\n\n// Quality Evaluation Criteria\nconst evaluationCriteria = {\n  completeness: { weight: 0.35, description: 'All required sections present' },\n  accuracy: { weight: 0.25, description: 'Information is correct and relevant' },\n  actionability: { weight: 0.25, description: 'Clear next steps and action items' },\n  consistency: { weight: 0.15, description: 'Aligned with requirements and other outputs' }\n};\n\n// Evaluate Completeness\nlet completenessScore = 0;\nif (output.summary) completenessScore += 25;\nif (output.action_items && output.action_items.length > 0) completenessScore += 25;\nif (output.next_steps && output.next_steps.length > 0) completenessScore += 25;\nif (output.metadata) completenessScore += 25;\n\n// Evaluate Actionability\nlet actionabilityScore = 0;\nif (output.action_items) {\n  const hasDeadlines = output.action_items.every(a => a.deadline);\n  const hasResponsible = output.action_items.every(a => a.responsible);\n  const hasPriority = output.action_items.every(a => a.priority);\n  actionabilityScore = (hasDeadlines ? 33 : 0) + (hasResponsible ? 33 : 0) + (hasPriority ? 34 : 0);\n}\n\n// Evaluate Accuracy (basic check - presence of expected fields)\nlet accuracyScore = 0;\nconst agentExpectedFields = {\n  'Legal Agent': ['documents', 'compliance'],\n  'Finance Agent': ['revenue_projections', 'pricing', 'taxes'],\n  'Tech Agent': ['tech_stack', 'architecture', 'api'],\n  'Design Agent': ['colors', 'typography', 'components'],\n  'Marketing Agent': ['pre_launch', 'content', 'seo']\n};\n\nconst expectedFields = agentExpectedFields[agentName] || [];\nif (expectedFields.length > 0) {\n  const presentFields = expectedFields.filter(f => output[f]);\n  accuracyScore = (presentFields.length / expectedFields.length) * 100;\n} else {\n  accuracyScore = 75; // Default if unknown agent\n}\n\n// Evaluate Consistency\nlet consistencyScore = 80; // Base score, would be calculated against other agents in full system\n\n// Calculate Weighted Total Score\nconst totalScore = Math.round(\n  (completenessScore * evaluationCriteria.completeness.weight) +\n  (accuracyScore * evaluationCriteria.accuracy.weight) +\n  (actionabilityScore * evaluationCriteria.actionability.weight) +\n  (consistencyScore * evaluationCriteria.consistency.weight)\n);\n\n// Identify Issues\nconst issues = [];\nif (completenessScore < 75) issues.push('Missing required sections in output');\nif (actionabilityScore < 75) issues.push('Action items missing deadlines, priorities, or responsible parties');\nif (accuracyScore < 75) issues.push('Missing expected deliverables for this agent type');\nif (consistencyScore < 75) issues.push('Output may not be consistent with requirements');\n\n// Determine Decision\nlet decision;\nlet reasoning;\nif (totalScore >= 80) {\n  decision = 'PROCEED';\n  reasoning = 'Output meets quality standards';\n} else if (totalScore >= 50 && context.current_iteration < context.max_iterations) {\n  decision = 'IMPROVE';\n  reasoning = 'Output needs improvement, requesting revision';\n} else if (totalScore < 50) {\n  decision = 'ESCALATE';\n  reasoning = 'Output quality too low, human intervention required';\n} else {\n  decision = 'PROCEED_WITH_WARNINGS';\n  reasoning = 'Max iterations reached, proceeding with warnings';\n}\n\nreturn {\n  json: {\n    evaluation: {\n      agent_name: agentName,\n      scores: {\n        completeness: completenessScore,\n        accuracy: accuracyScore,\n        actionability: actionabilityScore,\n        consistency: consistencyScore,\n        total: totalScore\n      },\n      issues: issues,\n      decision: decision,\n      reasoning: reasoning,\n      iteration: context.current_iteration,\n      max_iterations: context.max_iterations\n    },\n    original_output: output,\n    requirements: context.requirements,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "reflection-evaluate",
+      "name": "Evaluate Output Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "PROCEED",
+              "outputKey": "proceed"
+            },
+            {
+              "value": "IMPROVE",
+              "outputKey": "improve"
+            },
+            {
+              "value": "ESCALATE",
+              "outputKey": "escalate"
+            },
+            {
+              "value": "PROCEED_WITH_WARNINGS",
+              "outputKey": "proceed_warnings"
+            }
+          ]
+        },
+        "dataType": "string",
+        "value": "={{ $json.evaluation.decision }}"
+      },
+      "id": "reflection-router",
+      "name": "Decision Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'QUALITY_APPROVED',\n    agent_name: input.evaluation.agent_name,\n    quality_score: input.evaluation.scores.total,\n    output: input.original_output,\n    message: 'Output passed quality check and is ready for next phase',\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "reflection-proceed",
+      "name": "Proceed to Next Phase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'IMPROVEMENT_NEEDED',\n    agent_name: input.evaluation.agent_name,\n    quality_score: input.evaluation.scores.total,\n    issues: input.evaluation.issues,\n    improvement_instructions: input.evaluation.issues.map(issue => ({\n      issue: issue,\n      action: 'Revise output to address: ' + issue\n    })),\n    iteration: input.evaluation.iteration + 1,\n    max_iterations: input.evaluation.max_iterations,\n    original_requirements: input.requirements,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "reflection-improve",
+      "name": "Request Improvement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'ESCALATED_TO_HUMAN',\n    agent_name: input.evaluation.agent_name,\n    quality_score: input.evaluation.scores.total,\n    issues: input.evaluation.issues,\n    reason: 'Quality score below acceptable threshold after ' + input.evaluation.iteration + ' iterations',\n    requires_action: 'Human review and intervention required',\n    original_output: input.original_output,\n    requirements: input.requirements,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "reflection-escalate",
+      "name": "Escalate to Human",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 440]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Reflection", "type": "main", "index": 0}]]
+    },
+    "Initialize Reflection": {
+      "main": [[{"node": "Evaluate Output Quality", "type": "main", "index": 0}]]
+    },
+    "Evaluate Output Quality": {
+      "main": [[{"node": "Decision Router", "type": "main", "index": 0}]]
+    },
+    "Decision Router": {
+      "main": [
+        [{"node": "Proceed to Next Phase", "type": "main", "index": 0}],
+        [{"node": "Request Improvement", "type": "main", "index": 0}],
+        [{"node": "Escalate to Human", "type": "main", "index": 0}],
+        [{"node": "Proceed to Next Phase", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

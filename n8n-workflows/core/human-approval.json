@@ -1,0 +1,156 @@
+{
+  "name": "Human Approval Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "human-approval",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "approval-webhook",
+      "name": "Approval Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "webhookId": "human-approval-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst requestId = 'APPROVAL-' + Date.now();\nconst businessId = input.business_id || 'UNKNOWN';\nconst agentName = input.agent_name || 'System';\nconst approvalType = input.approval_type || 'GENERAL';\nconst urgency = input.urgency || 'NORMAL';\nconst summary = input.summary || 'Approval required';\nconst details = input.details || {};\nconst options = input.options || ['APPROVE', 'REJECT', 'MODIFY'];\n\n// Determine timeout based on urgency\nconst timeouts = {\n  CRITICAL: 1 * 60 * 60 * 1000,  // 1 hour\n  HIGH: 4 * 60 * 60 * 1000,       // 4 hours\n  NORMAL: 24 * 60 * 60 * 1000,    // 24 hours\n  LOW: 72 * 60 * 60 * 1000        // 72 hours\n};\n\nreturn {\n  json: {\n    request_id: requestId,\n    business_id: businessId,\n    agent_name: agentName,\n    approval_type: approvalType,\n    urgency: urgency,\n    summary: summary,\n    details: details,\n    options: options,\n    timeout_ms: timeouts[urgency] || timeouts.NORMAL,\n    created_at: new Date().toISOString(),\n    expires_at: new Date(Date.now() + (timeouts[urgency] || timeouts.NORMAL)).toISOString(),\n    status: 'PENDING'\n  }\n};"
+      },
+      "id": "approval-init",
+      "name": "Initialize Approval Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $input.first().json;\n\n// Format approval request for notification\nconst notificationBody = {\n  title: '🔔 Approval Required: ' + request.approval_type,\n  urgency: request.urgency,\n  message: request.summary,\n  business_id: request.business_id,\n  agent: request.agent_name,\n  request_id: request.request_id,\n  expires: request.expires_at,\n  actions: request.options.map(opt => ({\n    label: opt,\n    action_url: 'https://juozas.app.n8n.cloud/webhook/approval-response?request_id=' + request.request_id + '&decision=' + opt\n  })),\n  details: request.details\n};\n\nreturn {\n  json: {\n    notification: notificationBody,\n    request: request\n  }\n};"
+      },
+      "id": "approval-format",
+      "name": "Format Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'PENDING', request_id: $json.request.request_id, message: 'Approval request created. Response required by ' + $json.request.expires_at, approval_url: 'Notification sent to administrator' }) }}",
+        "options": {}
+      },
+      "id": "approval-response",
+      "name": "Return Pending Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "approval-response",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "response-webhook",
+      "name": "Approval Response Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 500],
+      "webhookId": "approval-response-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $input.first().json.query || {};\nconst requestId = query.request_id || 'UNKNOWN';\nconst decision = query.decision || 'UNKNOWN';\nconst comment = query.comment || '';\n\nconst validDecisions = ['APPROVE', 'REJECT', 'MODIFY', 'DEFER'];\n\nif (!validDecisions.includes(decision)) {\n  return {\n    json: {\n      error: true,\n      message: 'Invalid decision. Must be one of: ' + validDecisions.join(', '),\n      request_id: requestId\n    }\n  };\n}\n\nreturn {\n  json: {\n    request_id: requestId,\n    decision: decision,\n    comment: comment,\n    decided_by: 'Human Administrator',\n    decided_at: new Date().toISOString(),\n    status: decision === 'APPROVE' ? 'APPROVED' : decision === 'REJECT' ? 'REJECTED' : 'PENDING_MODIFICATION'\n  }\n};"
+      },
+      "id": "response-process",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 500]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "APPROVE",
+              "outputKey": "approved"
+            },
+            {
+              "value": "REJECT",
+              "outputKey": "rejected"
+            }
+          ],
+          "fallbackOutput": "other"
+        },
+        "dataType": "string",
+        "value": "={{ $json.decision }}"
+      },
+      "id": "response-router",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [540, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'APPROVED',\n    request_id: input.request_id,\n    message: 'Request approved by ' + input.decided_by,\n    approved_at: input.decided_at,\n    action: 'CONTINUE_WORKFLOW',\n    html: '<html><body><h1>✅ Approved</h1><p>Request ' + input.request_id + ' has been approved.</p><p>The workflow will continue automatically.</p></body></html>'\n  }\n};"
+      },
+      "id": "response-approved",
+      "name": "Handle Approved",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'REJECTED',\n    request_id: input.request_id,\n    message: 'Request rejected by ' + input.decided_by,\n    rejected_at: input.decided_at,\n    comment: input.comment,\n    action: 'STOP_WORKFLOW',\n    html: '<html><body><h1>❌ Rejected</h1><p>Request ' + input.request_id + ' has been rejected.</p><p>Reason: ' + (input.comment || 'No reason provided') + '</p></body></html>'\n  }\n};"
+      },
+      "id": "response-rejected",
+      "name": "Handle Rejected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 540]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn {\n  json: {\n    status: 'PENDING_MODIFICATION',\n    request_id: input.request_id,\n    message: 'Modification requested by ' + input.decided_by,\n    requested_at: input.decided_at,\n    modification_notes: input.comment,\n    action: 'REVISE_AND_RESUBMIT',\n    html: '<html><body><h1>🔄 Modification Required</h1><p>Request ' + input.request_id + ' requires modifications.</p><p>Notes: ' + (input.comment || 'No notes provided') + '</p></body></html>'\n  }\n};"
+      },
+      "id": "response-modify",
+      "name": "Handle Modify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 680]
+    }
+  ],
+  "connections": {
+    "Approval Request Webhook": {
+      "main": [[{"node": "Initialize Approval Request", "type": "main", "index": 0}]]
+    },
+    "Initialize Approval Request": {
+      "main": [[{"node": "Format Notification", "type": "main", "index": 0}]]
+    },
+    "Format Notification": {
+      "main": [[{"node": "Return Pending Status", "type": "main", "index": 0}]]
+    },
+    "Approval Response Webhook": {
+      "main": [[{"node": "Process Response", "type": "main", "index": 0}]]
+    },
+    "Process Response": {
+      "main": [[{"node": "Route Decision", "type": "main", "index": 0}]]
+    },
+    "Route Decision": {
+      "main": [
+        [{"node": "Handle Approved", "type": "main", "index": 0}],
+        [{"node": "Handle Rejected", "type": "main", "index": 0}],
+        [{"node": "Handle Modify", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

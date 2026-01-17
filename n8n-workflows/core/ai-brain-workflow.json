@@ -1,0 +1,70 @@
+{
+  "name": "AI Brain - Claude Powered Business Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-brain",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "brain-webhook",
+      "name": "Receive Idea",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "webhookId": "ai-brain-main"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_ANTHROPIC_API_KEY" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 4096,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a CEO AI Agent analyzing business ideas. Analyze this idea and provide a comprehensive business plan.\\n\\nBusiness Idea: {{ $json.body.idea || $json.idea }}\\n\\nProvide your analysis in this exact JSON format:\\n{\\n  \\\"analysis\\\": {\\n    \\\"domain\\\": \\\"saas|ecommerce|fintech|ai|content|social\\\",\\n    \\\"complexity\\\": \\\"low|medium|high\\\",\\n    \\\"market_size\\\": \\\"description\\\",\\n    \\\"competition\\\": \\\"description\\\",\\n    \\\"unique_value\\\": \\\"description\\\"\\n  },\\n  \\\"business_plan\\\": {\\n    \\\"name_suggestions\\\": [\\\"name1\\\", \\\"name2\\\", \\\"name3\\\"],\\n    \\\"target_audience\\\": \\\"description\\\",\\n    \\\"revenue_model\\\": \\\"subscription|transaction|advertising|freemium\\\",\\n    \\\"pricing_tiers\\\": [{\\\"name\\\": \\\"Starter\\\", \\\"price\\\": 29}, {\\\"name\\\": \\\"Pro\\\", \\\"price\\\": 79}],\\n    \\\"mvp_features\\\": [\\\"feature1\\\", \\\"feature2\\\", \\\"feature3\\\"],\\n    \\\"tech_stack\\\": {\\\"frontend\\\": \\\"...\\\", \\\"backend\\\": \\\"...\\\", \\\"database\\\": \\\"...\\\"}\\n  },\\n  \\\"action_plan\\\": {\\n    \\\"week_1\\\": [\\\"task1\\\", \\\"task2\\\"],\\n    \\\"week_2\\\": [\\\"task1\\\", \\\"task2\\\"],\\n    \\\"month_1\\\": [\\\"milestone1\\\", \\\"milestone2\\\"]\\n  },\\n  \\\"risks\\\": [{\\\"type\\\": \\\"...\\\", \\\"level\\\": \\\"low|medium|high\\\", \\\"mitigation\\\": \\\"...\\\"}],\\n  \\\"financial_projection\\\": {\\n    \\\"startup_cost\\\": \\\"EUR amount\\\",\\n    \\\"monthly_cost\\\": \\\"EUR amount\\\",\\n    \\\"break_even_months\\\": number,\\n    \\\"year1_revenue\\\": \\\"EUR amount\\\"\\n  },\\n  \\\"decision\\\": \\\"GO|NEEDS_REFINEMENT|HIGH_RISK\\\",\\n  \\\"reasoning\\\": \\\"explanation\\\"\\n}\\n\\nRespond ONLY with valid JSON, no other text.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "claude-call",
+      "name": "Claude AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.content && response.content[0] ? response.content[0].text : '{}';\n\nlet analysis;\ntry {\n  // Try to parse the JSON from Claude's response\n  const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n  analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: 'Could not parse response' };\n} catch (e) {\n  analysis = { error: 'Parse error', raw: content.substring(0, 500) };\n}\n\nconst sessionId = 'BIZ-' + Date.now();\n\nreturn {\n  json: {\n    session_id: sessionId,\n    status: 'COMPLETED',\n    ai_model: 'claude-sonnet-4',\n    ...analysis,\n    metadata: {\n      generated_at: new Date().toISOString(),\n      tokens_used: response.usage ? response.usage.output_tokens : 0\n    }\n  }\n};"
+      },
+      "id": "parse-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "brain-respond",
+      "name": "Return Analysis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Receive Idea": { "main": [[{"node": "Claude AI Analysis", "type": "main", "index": 0}]] },
+    "Claude AI Analysis": { "main": [[{"node": "Parse AI Response", "type": "main", "index": 0}]] },
+    "Parse AI Response": { "main": [[{"node": "Return Analysis", "type": "main", "index": 0}]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

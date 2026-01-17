@@ -1,0 +1,57 @@
+{
+  "name": "Tech Agent - Department Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "tech-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst businessId = input.business_id || 'BIZ-' + Date.now();\nconst task = input.task || 'full_tech_architecture';\nconst requirements = input.requirements || {};\nconst productType = requirements.product_type || 'web_app';\nconst complexity = requirements.complexity || 'medium';\nconst scalability = requirements.scalability || 'medium';\nconst features = requirements.features || ['auth', 'dashboard', 'api'];\nconst userCount = requirements.expected_users || 1000;\nconst budget = requirements.tech_budget || 'moderate';\n\nreturn {\n  json: {\n    business_id: businessId,\n    task: task,\n    requirements: {\n      product_type: productType,\n      complexity: complexity,\n      scalability: scalability,\n      features: features,\n      expected_users: userCount,\n      budget: budget\n    },\n    processing_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "tech-init",
+      "name": "Initialize Tech Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst req = context.requirements;\n\n// Tech Stack Recommendation based on complexity\nconst techStacks = {\n  simple: {\n    frontend: { framework: 'Next.js', language: 'TypeScript', ui: 'Tailwind CSS + shadcn/ui' },\n    backend: { framework: 'Next.js API Routes', language: 'TypeScript', orm: 'Prisma' },\n    database: { primary: 'PostgreSQL (Supabase)', cache: 'Vercel KV' },\n    hosting: { platform: 'Vercel', cdn: 'Vercel Edge' },\n    cost_estimate: '50-150 EUR/month'\n  },\n  medium: {\n    frontend: { framework: 'Next.js 14', language: 'TypeScript', ui: 'Tailwind + Radix UI', state: 'Zustand' },\n    backend: { framework: 'Node.js + tRPC or Hono', language: 'TypeScript', orm: 'Drizzle/Prisma' },\n    database: { primary: 'PostgreSQL (Neon/Supabase)', cache: 'Redis (Upstash)', search: 'Meilisearch' },\n    hosting: { platform: 'Vercel + Railway', cdn: 'Cloudflare' },\n    cost_estimate: '150-500 EUR/month'\n  },\n  high: {\n    frontend: { framework: 'Next.js 14 + React Server Components', language: 'TypeScript', ui: 'Custom Design System', state: 'TanStack Query + Zustand' },\n    backend: { framework: 'Node.js + Fastify / Go + Fiber', language: 'TypeScript/Go', orm: 'Drizzle', queue: 'BullMQ' },\n    database: { primary: 'PostgreSQL (RDS/AlloyDB)', cache: 'Redis Cluster', search: 'Elasticsearch', analytics: 'ClickHouse' },\n    hosting: { platform: 'AWS/GCP', container: 'Docker + Kubernetes', cdn: 'CloudFront' },\n    cost_estimate: '500-2000+ EUR/month'\n  }\n};\n\nconst selectedStack = techStacks[req.complexity] || techStacks.medium;\n\n// Architecture Components\nconst architecture = {\n  pattern: req.complexity === 'high' ? 'Microservices' : 'Modular Monolith',\n  layers: ['Presentation (UI)', 'Application (API)', 'Domain (Business Logic)', 'Infrastructure (DB, External)'],\n  components: [\n    { name: 'Web Application', type: 'frontend', technology: selectedStack.frontend.framework },\n    { name: 'API Server', type: 'backend', technology: selectedStack.backend.framework },\n    { name: 'Database', type: 'data', technology: selectedStack.database.primary },\n    { name: 'Cache Layer', type: 'data', technology: selectedStack.database.cache },\n    { name: 'Auth Service', type: 'service', technology: 'NextAuth.js / Clerk / Auth0' }\n  ]\n};\n\n// Database Schema (Core Tables)\nconst databaseSchema = {\n  tables: [\n    { name: 'users', columns: ['id (uuid, PK)', 'email (unique)', 'password_hash', 'name', 'role', 'created_at', 'updated_at'] },\n    { name: 'organizations', columns: ['id (uuid, PK)', 'name', 'slug (unique)', 'plan', 'created_at'] },\n    { name: 'memberships', columns: ['id', 'user_id (FK)', 'org_id (FK)', 'role', 'joined_at'] },\n    { name: 'subscriptions', columns: ['id', 'org_id (FK)', 'stripe_id', 'status', 'plan', 'period_end'] },\n    { name: 'audit_logs', columns: ['id', 'user_id', 'action', 'resource', 'metadata (jsonb)', 'created_at'] }\n  ],\n  indexes: ['users(email)', 'organizations(slug)', 'memberships(user_id, org_id)', 'audit_logs(user_id, created_at)'],\n  migrations: 'Drizzle Kit / Prisma Migrate'\n};\n\n// API Specification\nconst apiSpec = {\n  version: 'v1',\n  base_url: '/api/v1',\n  format: 'REST + tRPC',\n  auth: 'Bearer JWT / Session',\n  endpoints: [\n    { method: 'POST', path: '/auth/login', description: 'User login' },\n    { method: 'POST', path: '/auth/register', description: 'User registration' },\n    { method: 'GET', path: '/users/me', description: 'Get current user' },\n    { method: 'GET', path: '/organizations', description: 'List user organizations' },\n    { method: 'POST', path: '/subscriptions/checkout', description: 'Create Stripe checkout' },\n    { method: 'POST', path: '/webhooks/stripe', description: 'Handle Stripe webhooks' }\n  ],\n  rate_limiting: '100 req/min per IP, 1000 req/min authenticated'\n};\n\n// Infrastructure\nconst infrastructure = {\n  environments: ['development', 'staging', 'production'],\n  ci_cd: { platform: 'GitHub Actions', steps: ['Lint', 'Type Check', 'Unit Tests', 'E2E Tests', 'Deploy'] },\n  monitoring: { apm: 'Sentry', logs: 'Axiom/Logtail', uptime: 'BetterStack', analytics: 'PostHog' },\n  security: ['HTTPS everywhere', 'CORS configuration', 'Rate limiting', 'Input validation', 'SQL injection prevention', 'XSS protection']\n};\n\nreturn {\n  json: {\n    business_id: context.business_id,\n    agent: 'TECH_AGENT',\n    status: 'ARCHITECTURE_DESIGNED',\n    tech_stack: selectedStack,\n    architecture: architecture,\n    database_schema: databaseSchema,\n    api_specification: apiSpec,\n    infrastructure: infrastructure,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "tech-design",
+      "name": "Design Architecture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nconst actionItems = [\n  { priority: 1, action: 'Setup GitHub repository with template', deadline: 'Day 1', responsible: 'Tech Lead' },\n  { priority: 1, action: 'Configure CI/CD pipeline', deadline: 'Day 1', responsible: 'DevOps' },\n  { priority: 1, action: 'Setup development environment', deadline: 'Day 1', responsible: 'All Developers' },\n  { priority: 2, action: 'Implement authentication system', deadline: 'Week 1', responsible: 'Backend' },\n  { priority: 2, action: 'Create database schema and migrations', deadline: 'Week 1', responsible: 'Backend' },\n  { priority: 2, action: 'Setup monitoring and error tracking', deadline: 'Week 1', responsible: 'DevOps' },\n  { priority: 3, action: 'Implement core API endpoints', deadline: 'Week 2', responsible: 'Backend' },\n  { priority: 3, action: 'Build UI components', deadline: 'Week 2', responsible: 'Frontend' }\n];\n\nconst summary = {\n  agent: 'Tech Agent',\n  business_id: result.business_id,\n  status: 'COMPLETED',\n  architecture_pattern: result.architecture.pattern,\n  primary_stack: result.tech_stack.frontend.framework + ' + ' + result.tech_stack.backend.framework,\n  database: result.tech_stack.database.primary,\n  estimated_monthly_cost: result.tech_stack.cost_estimate,\n  components_count: result.architecture.components.length,\n  api_endpoints_count: result.api_specification.endpoints.length\n};\n\nreturn {\n  json: {\n    summary: summary,\n    tech_stack: result.tech_stack,\n    architecture: result.architecture,\n    database: result.database_schema,\n    api: result.api_specification,\n    infrastructure: result.infrastructure,\n    action_items: actionItems,\n    next_steps: ['Setup repository', 'Configure hosting', 'Start development sprint', 'Setup monitoring'],\n    metadata: { agent_version: '1.0.0', processed_at: result.timestamp }\n  }\n};"
+      },
+      "id": "tech-output",
+      "name": "Format Tech Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Tech Context", "type": "main", "index": 0}]]
+    },
+    "Initialize Tech Context": {
+      "main": [[{"node": "Design Architecture", "type": "main", "index": 0}]]
+    },
+    "Design Architecture": {
+      "main": [[{"node": "Format Tech Output", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

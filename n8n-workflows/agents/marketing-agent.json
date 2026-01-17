@@ -1,0 +1,57 @@
+{
+  "name": "Marketing Agent - Department Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "marketing-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst businessId = input.business_id || 'BIZ-' + Date.now();\nconst task = input.task || 'full_marketing_strategy';\nconst requirements = input.requirements || {};\nconst businessName = requirements.business_name || 'New Product';\nconst industry = requirements.industry || 'technology';\nconst targetAudience = requirements.target_audience || 'B2B professionals';\nconst budget = requirements.marketing_budget || 'moderate';\nconst launchDate = requirements.launch_date || 'TBD';\nconst uniqueValue = requirements.unique_value_proposition || 'Innovative solution';\n\nreturn {\n  json: {\n    business_id: businessId,\n    task: task,\n    marketing_context: {\n      name: businessName,\n      industry: industry,\n      target_audience: targetAudience,\n      budget: budget,\n      launch_date: launchDate,\n      uvp: uniqueValue\n    },\n    processing_timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "marketing-init",
+      "name": "Initialize Marketing Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $input.first().json;\nconst mc = context.marketing_context;\n\n// Pre-Launch Strategy (4 weeks before)\nconst preLaunchStrategy = {\n  weeks_before: 4,\n  activities: [\n    { week: -4, task: 'Build landing page with email capture', channel: 'Website' },\n    { week: -4, task: 'Create social media profiles', channel: 'Social' },\n    { week: -3, task: 'Start teaser content campaign', channel: 'Social/Email' },\n    { week: -3, task: 'Reach out to beta testers', channel: 'Email/DM' },\n    { week: -2, task: 'Prepare Product Hunt launch', channel: 'Product Hunt' },\n    { week: -2, task: 'Create launch announcement assets', channel: 'All' },\n    { week: -1, task: 'Final beta feedback round', channel: 'Email' },\n    { week: -1, task: 'Prepare launch day posts', channel: 'Social' }\n  ]\n};\n\n// Launch Day Strategy\nconst launchDayStrategy = {\n  timing: 'Tuesday-Thursday, 00:01 PST (Product Hunt)', \n  channels: [\n    { channel: 'Product Hunt', priority: 1, action: 'Submit and engage with comments all day' },\n    { channel: 'Twitter/X', priority: 1, action: 'Announcement thread + engagement' },\n    { channel: 'LinkedIn', priority: 2, action: 'Professional announcement post' },\n    { channel: 'Hacker News', priority: 2, action: 'Show HN post (if technical product)' },\n    { channel: 'Reddit', priority: 3, action: 'Relevant subreddits (with value, not spam)' },\n    { channel: 'Email', priority: 1, action: 'Launch announcement to waitlist' }\n  ]\n};\n\n// Content Calendar (First Month)\nconst contentCalendar = {\n  blog_posts: [\n    { week: 1, title: 'Introducing ' + mc.name + ': ' + mc.uvp, type: 'Launch' },\n    { week: 2, title: 'How to get started with ' + mc.name, type: 'Tutorial' },\n    { week: 3, title: '5 ways ' + mc.name + ' solves [pain point]', type: 'Value prop' },\n    { week: 4, title: 'Customer success story', type: 'Case study' }\n  ],\n  social_posts_per_week: {\n    twitter: 5,\n    linkedin: 3,\n    threads: 2\n  },\n  content_types: ['Educational threads', 'Behind-the-scenes', 'Tips & tricks', 'User testimonials', 'Product updates']\n};\n\n// Email Sequences\nconst emailSequences = {\n  welcome_sequence: [\n    { day: 0, subject: 'Welcome to ' + mc.name + '!', content: 'Introduction + quick start' },\n    { day: 2, subject: 'Quick tip: Get more from ' + mc.name, content: 'Feature highlight' },\n    { day: 5, subject: 'How are you liking ' + mc.name + '?', content: 'Feedback request + NPS' },\n    { day: 7, subject: 'Unlock premium features', content: 'Upgrade CTA' }\n  ],\n  nurture_sequence: [\n    { trigger: 'Signed up but not converted', emails: 5, goal: 'Free trial to paid' },\n    { trigger: 'Inactive 7 days', emails: 3, goal: 'Re-engagement' },\n    { trigger: 'Cancelled', emails: 2, goal: 'Win-back' }\n  ]\n};\n\n// SEO Strategy\nconst seoStrategy = {\n  target_keywords: [\n    mc.industry + ' software',\n    mc.industry + ' tool',\n    mc.industry + ' platform',\n    'best ' + mc.industry + ' tools 2026',\n    mc.name + ' alternative'\n  ],\n  technical_seo: ['Fast page speed (<2s)', 'Mobile responsive', 'Schema markup', 'Sitemap', 'Meta tags'],\n  content_seo: ['Blog with target keywords', 'Comparison pages', 'Use case pages', 'Integration pages'],\n  backlink_strategy: ['Guest posts', 'HARO responses', 'Directory listings', 'Partner mentions']\n};\n\n// Paid Marketing (if budget allows)\nconst paidMarketing = {\n  recommended_channels: [\n    { channel: 'Google Ads', budget_percentage: 40, focus: 'Search intent keywords' },\n    { channel: 'LinkedIn Ads', budget_percentage: 30, focus: 'B2B targeting' },\n    { channel: 'Twitter/X Ads', budget_percentage: 20, focus: 'Awareness + retargeting' },\n    { channel: 'Retargeting', budget_percentage: 10, focus: 'Website visitors' }\n  ],\n  starting_budget: mc.budget === 'high' ? '3000-5000 EUR/month' : mc.budget === 'moderate' ? '500-1500 EUR/month' : '100-500 EUR/month'\n};\n\nreturn {\n  json: {\n    business_id: context.business_id,\n    agent: 'MARKETING_AGENT',\n    status: 'STRATEGY_CREATED',\n    pre_launch: preLaunchStrategy,\n    launch_day: launchDayStrategy,\n    content_calendar: contentCalendar,\n    email_sequences: emailSequences,\n    seo_strategy: seoStrategy,\n    paid_marketing: paidMarketing,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "marketing-strategy",
+      "name": "Create Marketing Strategy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nconst actionItems = [\n  { priority: 1, action: 'Build landing page with email capture', deadline: 'Week 1', responsible: 'Marketing/Dev' },\n  { priority: 1, action: 'Setup email marketing tool (Resend/Loops)', deadline: 'Week 1', responsible: 'Marketing' },\n  { priority: 1, action: 'Create social media accounts', deadline: 'Week 1', responsible: 'Marketing' },\n  { priority: 2, action: 'Write launch blog post', deadline: 'Week 2', responsible: 'Marketing' },\n  { priority: 2, action: 'Prepare Product Hunt assets', deadline: 'Week 2', responsible: 'Marketing/Design' },\n  { priority: 2, action: 'Setup Google Analytics + tracking', deadline: 'Week 2', responsible: 'Dev/Marketing' },\n  { priority: 3, action: 'Create email sequences', deadline: 'Week 3', responsible: 'Marketing' },\n  { priority: 3, action: 'Start content creation', deadline: 'Week 3', responsible: 'Marketing' }\n];\n\nconst summary = {\n  agent: 'Marketing Agent',\n  business_id: result.business_id,\n  status: 'COMPLETED',\n  launch_channels: result.launch_day.channels.length,\n  pre_launch_activities: result.pre_launch.activities.length,\n  email_sequences: Object.keys(result.email_sequences).length,\n  blog_posts_planned: result.content_calendar.blog_posts.length,\n  recommended_budget: result.paid_marketing.starting_budget\n};\n\nreturn {\n  json: {\n    summary: summary,\n    pre_launch: result.pre_launch,\n    launch_day: result.launch_day,\n    content: result.content_calendar,\n    email: result.email_sequences,\n    seo: result.seo_strategy,\n    paid: result.paid_marketing,\n    action_items: actionItems,\n    next_steps: ['Build landing page', 'Setup analytics', 'Create social profiles', 'Start pre-launch campaign'],\n    tools_recommended: ['Resend/Loops (email)', 'Plausible/PostHog (analytics)', 'Buffer (social)', 'Ahrefs/Semrush (SEO)'],\n    metadata: { agent_version: '1.0.0', processed_at: result.timestamp }\n  }\n};"
+      },
+      "id": "marketing-output",
+      "name": "Format Marketing Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Initialize Marketing Context", "type": "main", "index": 0}]]
+    },
+    "Initialize Marketing Context": {
+      "main": [[{"node": "Create Marketing Strategy", "type": "main", "index": 0}]]
+    },
+    "Create Marketing Strategy": {
+      "main": [[{"node": "Format Marketing Output", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
