@@ -1,0 +1,446 @@
+{
+  "name": "Marketing Automation Agent - Social Media",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketing-auto",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-marketing",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "marketing-automation"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "input-product",
+              "name": "product_name",
+              "value": "={{ $json.body.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "input-description",
+              "name": "product_description",
+              "value": "={{ $json.body.product_description }}",
+              "type": "string"
+            },
+            {
+              "id": "input-image-url",
+              "name": "image_url",
+              "value": "={{ $json.body.image_url }}",
+              "type": "string"
+            },
+            {
+              "id": "input-target-audience",
+              "name": "target_audience",
+              "value": "={{ $json.body.target_audience || 'general' }}",
+              "type": "string"
+            },
+            {
+              "id": "input-platforms",
+              "name": "platforms",
+              "value": "={{ $json.body.platforms || ['instagram', 'facebook'] }}",
+              "type": "array"
+            },
+            {
+              "id": "input-campaign-type",
+              "name": "campaign_type",
+              "value": "={{ $json.body.campaign_type || 'product_launch' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a marketing expert specializing in social media content for e-commerce and Print-on-Demand products. Create engaging, conversion-focused content.\\n\\nYour tasks:\\n1. Generate compelling social media captions\\n2. Create relevant hashtags\\n3. Suggest optimal posting times\\n4. Write email marketing copy\\n5. Generate ad copy for Facebook/Instagram\\n\\nAlways provide JSON output with structure: {\\n  \\\"instagram_post\\\": {\\\"caption\\\": \\\"\\\", \\\"hashtags\\\": []},\\n  \\\"facebook_post\\\": {\\\"caption\\\": \\\"\\\", \\\"cta\\\": \\\"\\\"},\\n  \\\"email_subject\\\": \\\"\\\",\\n  \\\"email_body\\\": \\\"\\\",\\n  \\\"ad_headline\\\": \\\"\\\",\\n  \\\"ad_copy\\\": \\\"\\\",\\n  \\\"best_posting_time\\\": \\\"\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Product: {{ $json.product_name }}\\nDescription: {{ $json.product_description }}\\nTarget Audience: {{ $json.target_audience }}\\nCampaign Type: {{ $json.campaign_type }}\\n\\nGenerate complete social media marketing content.\"\n    }\n  ],\n  \"temperature\": 0.8,\n  \"max_tokens\": 1500,\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+        "options": {}
+      },
+      "id": "generate-marketing-content",
+      "name": "Generate Marketing Content (GPT-4o)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-ai-response",
+              "name": "marketing_content",
+              "value": "={{ JSON.parse($json.choices[0].message.content) }}",
+              "type": "object"
+            },
+            {
+              "id": "session-id",
+              "name": "session_id",
+              "value": "=MARKETING-{{ $now.toUnixInteger() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-ai-output",
+      "name": "Parse AI Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-instagram",
+              "leftValue": "={{ $json.platforms }}",
+              "rightValue": "instagram",
+              "operator": {
+                "type": "array",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-instagram",
+      "name": "Instagram Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ig-post",
+              "name": "instagram_ready",
+              "value": "={\n  \"platform\": \"instagram\",\n  \"caption\": {{ $('Parse AI Output').item.json.marketing_content.instagram_post.caption }},\n  \"hashtags\": {{ $('Parse AI Output').item.json.marketing_content.instagram_post.hashtags }},\n  \"image_url\": {{ $('Parse Input').item.json.image_url }},\n  \"scheduled_time\": {{ $('Parse AI Output').item.json.marketing_content.best_posting_time }},\n  \"status\": \"ready_to_post\"\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-instagram-post",
+      "name": "Prepare Instagram Post",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-facebook",
+              "leftValue": "={{ $json.platforms }}",
+              "rightValue": "facebook",
+              "operator": {
+                "type": "array",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-facebook",
+      "name": "Facebook Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fb-post",
+              "name": "facebook_ready",
+              "value": "={\n  \"platform\": \"facebook\",\n  \"caption\": {{ $('Parse AI Output').item.json.marketing_content.facebook_post.caption }},\n  \"cta\": {{ $('Parse AI Output').item.json.marketing_content.facebook_post.cta }},\n  \"image_url\": {{ $('Parse Input').item.json.image_url }},\n  \"scheduled_time\": {{ $('Parse AI Output').item.json.marketing_content.best_posting_time }},\n  \"status\": \"ready_to_post\"\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-facebook-post",
+      "name": "Prepare Facebook Post",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-social-posts",
+      "name": "Merge Social Posts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email-campaign",
+              "name": "email_campaign",
+              "value": "={\n  \"subject\": {{ $('Parse AI Output').item.json.marketing_content.email_subject }},\n  \"body\": {{ $('Parse AI Output').item.json.marketing_content.email_body }},\n  \"product_name\": {{ $('Parse Input').item.json.product_name }},\n  \"image_url\": {{ $('Parse Input').item.json.image_url }},\n  \"status\": \"ready_to_send\"\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-email",
+      "name": "Prepare Email Campaign",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ad-campaign",
+              "name": "ad_campaign",
+              "value": "={\n  \"headline\": {{ $('Parse AI Output').item.json.marketing_content.ad_headline }},\n  \"copy\": {{ $('Parse AI Output').item.json.marketing_content.ad_copy }},\n  \"image_url\": {{ $('Parse Input').item.json.image_url }},\n  \"target_audience\": {{ $('Parse Input').item.json.target_audience }},\n  \"platforms\": [\"facebook\", \"instagram\"],\n  \"budget_recommendation\": \"€5-10/day for testing\",\n  \"status\": \"ready_to_launch\"\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-ad-campaign",
+      "name": "Prepare Ad Campaign",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-all-campaigns",
+      "name": "Merge All Campaigns",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"COMPLETED\",\n  \"session_id\": {{ $('Parse AI Output').item.json.session_id }},\n  \"product\": {{ $('Parse Input').item.json.product_name }},\n  \"marketing_package\": {\n    \"social_media\": {\n      \"instagram\": {{ $('Prepare Instagram Post').item.json.instagram_ready || null }},\n      \"facebook\": {{ $('Prepare Facebook Post').item.json.facebook_ready || null }}\n    },\n    \"email\": {{ $('Prepare Email Campaign').item.json.email_campaign }},\n    \"ads\": {{ $('Prepare Ad Campaign').item.json.ad_campaign }},\n    \"content\": {{ $('Parse AI Output').item.json.marketing_content }}\n  },\n  \"next_steps\": [\n    \"Review generated content\",\n    \"Schedule social media posts\",\n    \"Setup email campaign in your ESP\",\n    \"Launch Facebook/Instagram ads with recommended budget\"\n  ],\n  \"automation_level\": \"85%\",\n  \"manual_steps\": [\n    \"Connect social media accounts\",\n    \"Approve final content\",\n    \"Set ad budget and targeting\"\n  ]\n}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2440, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Generate Marketing Content (GPT-4o)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Marketing Content (GPT-4o)": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "Instagram Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Facebook Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Instagram Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Instagram Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Facebook Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Instagram Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Facebook Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Social Posts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Social Posts": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Campaign": {
+      "main": [
+        [
+          {
+            "node": "Prepare Ad Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Ad Campaign": {
+      "main": [
+        [
+          {
+            "node": "Merge All Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}
