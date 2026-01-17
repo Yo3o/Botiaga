@@ -1,0 +1,390 @@
+{
+  "name": "Shopify Integration - Automated Product Upload",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shopify-upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "shopify-product-upload"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "product-name",
+              "name": "product_name",
+              "value": "={{ $json.body.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "product-description",
+              "name": "product_description",
+              "value": "={{ $json.body.product_description }}",
+              "type": "string"
+            },
+            {
+              "id": "design-url",
+              "name": "design_url",
+              "value": "={{ $json.body.design_url }}",
+              "type": "string"
+            },
+            {
+              "id": "price",
+              "name": "price",
+              "value": "={{ $json.body.price || 29.99 }}",
+              "type": "number"
+            },
+            {
+              "id": "category",
+              "name": "category",
+              "value": "={{ $json.body.category || 'Apparel' }}",
+              "type": "string"
+            },
+            {
+              "id": "tags",
+              "name": "tags",
+              "value": "={{ $json.body.tags || ['t-shirt', 'print-on-demand'] }}",
+              "type": "array"
+            },
+            {
+              "id": "shopify-store",
+              "name": "shopify_store",
+              "value": "={{ $json.body.shopify_store || 'your-store.myshopify.com' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-input",
+      "name": "Parse Product Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an e-commerce product description expert. Create compelling, SEO-optimized product descriptions for Shopify.\\n\\nRules:\\n1. Write engaging product titles (max 70 characters)\\n2. Create detailed descriptions (150-300 words)\\n3. Include key features as bullet points\\n4. Add relevant SEO keywords\\n5. Create compelling meta descriptions\\n6. Suggest product tags\\n\\nOutput JSON format:\\n{\\n  \\\"title\\\": \\\"SEO-optimized title\\\",\\n  \\\"description\\\": \\\"Full HTML description\\\",\\n  \\\"features\\\": [\\\"feature1\\\", \\\"feature2\\\"],\\n  \\\"meta_description\\\": \\\"SEO meta\\\",\\n  \\\"tags\\\": [\\\"tag1\\\", \\\"tag2\\\"],\\n  \\\"seo_keywords\\\": [\\\"keyword1\\\", \\\"keyword2\\\"]\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Product: {{ $json.product_name }}\\nBasic Description: {{ $json.product_description }}\\nCategory: {{ $json.category }}\\n\\nGenerate complete Shopify product content.\"\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 800,\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+        "options": {}
+      },
+      "id": "enhance-description",
+      "name": "Enhance Product Description (GPT-4o)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "enhanced-content",
+              "name": "enhanced_content",
+              "value": "={{ JSON.parse($json.choices[0].message.content) }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-enhanced",
+      "name": "Parse Enhanced Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Parse Product Data').item.json.shopify_store }}/admin/api/2024-01/products.json",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Shopify-Access-Token",
+              "value": "YOUR_SHOPIFY_ACCESS_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product\": {\n    \"title\": {{ $json.enhanced_content.title }},\n    \"body_html\": {{ $json.enhanced_content.description }},\n    \"vendor\": \"POD Store\",\n    \"product_type\": {{ $('Parse Product Data').item.json.category }},\n    \"tags\": {{ $json.enhanced_content.tags.join(', ') }},\n    \"published\": false,\n    \"variants\": [\n      {\n        \"option1\": \"Small\",\n        \"price\": {{ $('Parse Product Data').item.json.price }},\n        \"sku\": \"POD-S-{{ $now.toUnixInteger() }}\",\n        \"inventory_management\": \"shopify\",\n        \"inventory_quantity\": 0\n      },\n      {\n        \"option1\": \"Medium\",\n        \"price\": {{ $('Parse Product Data').item.json.price }},\n        \"sku\": \"POD-M-{{ $now.toUnixInteger() }}\",\n        \"inventory_management\": \"shopify\",\n        \"inventory_quantity\": 0\n      },\n      {\n        \"option1\": \"Large\",\n        \"price\": {{ $('Parse Product Data').item.json.price }},\n        \"sku\": \"POD-L-{{ $now.toUnixInteger() }}\",\n        \"inventory_management\": \"shopify\",\n        \"inventory_quantity\": 0\n      },\n      {\n        \"option1\": \"X-Large\",\n        \"price\": {{ $('Parse Product Data').item.json.price + 2 }},\n        \"sku\": \"POD-XL-{{ $now.toUnixInteger() }}\",\n        \"inventory_management\": \"shopify\",\n        \"inventory_quantity\": 0\n      }\n    ],\n    \"options\": [\n      {\n        \"name\": \"Size\",\n        \"values\": [\"Small\", \"Medium\", \"Large\", \"X-Large\"]\n      }\n    ],\n    \"images\": [\n      {\n        \"src\": {{ $('Parse Product Data').item.json.design_url }},\n        \"alt\": {{ $json.enhanced_content.title }}\n      }\n    ],\n    \"metafields_global_title_tag\": {{ $json.enhanced_content.title }},\n    \"metafields_global_description_tag\": {{ $json.enhanced_content.meta_description }}\n  }\n}",
+        "options": {}
+      },
+      "id": "create-shopify-product",
+      "name": "Create Shopify Product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "shopify-product-id",
+              "name": "shopify_product_id",
+              "value": "={{ $json.product.id }}",
+              "type": "number"
+            },
+            {
+              "id": "shopify-product-handle",
+              "name": "product_handle",
+              "value": "={{ $json.product.handle }}",
+              "type": "string"
+            },
+            {
+              "id": "shopify-admin-url",
+              "name": "admin_url",
+              "value": "=https://{{ $('Parse Product Data').item.json.shopify_store }}/admin/products/{{ $json.product.id }}",
+              "type": "string"
+            },
+            {
+              "id": "shopify-public-url",
+              "name": "public_url",
+              "value": "=https://{{ $('Parse Product Data').item.json.shopify_store.replace('.myshopify.com', '') }}/products/{{ $json.product.handle }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-product-info",
+      "name": "Extract Product Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-design-url",
+              "leftValue": "={{ $('Parse Product Data').item.json.design_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-printful-sync",
+      "name": "Sync with Printful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.printful.com/store/products",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_PRINTFUL_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sync_product\": {\n    \"external_id\": {{ $('Extract Product Info').item.json.shopify_product_id }},\n    \"name\": {{ $('Parse Enhanced Content').item.json.enhanced_content.title }},\n    \"thumbnail\": {{ $('Parse Product Data').item.json.design_url }}\n  },\n  \"sync_variants\": [\n    {\n      \"external_id\": \"variant-s\",\n      \"variant_id\": 4012,\n      \"retail_price\": {{ $('Parse Product Data').item.json.price }},\n      \"files\": [\n        {\n          \"url\": {{ $('Parse Product Data').item.json.design_url }}\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "sync-printful",
+      "name": "Sync to Printful",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"SUCCESS\",\n  \"message\": \"Product uploaded to Shopify\",\n  \"shopify\": {\n    \"product_id\": {{ $('Extract Product Info').item.json.shopify_product_id }},\n    \"handle\": {{ $('Extract Product Info').item.json.product_handle }},\n    \"admin_url\": {{ $('Extract Product Info').item.json.admin_url }},\n    \"public_url\": {{ $('Extract Product Info').item.json.public_url }},\n    \"status\": \"draft\"\n  },\n  \"printful\": {\n    \"synced\": {{ $('Sync to Printful').item.json ? true : false }},\n    \"sync_product_id\": {{ $('Sync to Printful').item.json.result.id || null }}\n  },\n  \"product\": {\n    \"title\": {{ $('Parse Enhanced Content').item.json.enhanced_content.title }},\n    \"price\": {{ $('Parse Product Data').item.json.price }},\n    \"variants\": 4,\n    \"sizes\": [\"S\", \"M\", \"L\", \"XL\"]\n  },\n  \"next_steps\": [\n    \"Review product in Shopify admin\",\n    \"Add additional product images if needed\",\n    \"Publish product when ready\",\n    \"Configure Printful fulfillment settings\"\n  ],\n  \"automation_level\": \"95%\"\n}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Product Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Product Data": {
+      "main": [
+        [
+          {
+            "node": "Enhance Product Description (GPT-4o)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhance Product Description (GPT-4o)": {
+      "main": [
+        [
+          {
+            "node": "Parse Enhanced Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Enhanced Content": {
+      "main": [
+        [
+          {
+            "node": "Create Shopify Product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Shopify Product": {
+      "main": [
+        [
+          {
+            "node": "Extract Product Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Product Info": {
+      "main": [
+        [
+          {
+            "node": "Sync with Printful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync with Printful?": {
+      "main": [
+        [
+          {
+            "node": "Sync to Printful",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Sync to Printful": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}

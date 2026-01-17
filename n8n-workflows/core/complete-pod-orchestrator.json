@@ -1,0 +1,345 @@
+{
+  "name": "Complete POD Orchestrator - End-to-End Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pod-complete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "pod-complete-automation"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "theme",
+              "name": "theme",
+              "value": "={{ $json.body.theme }}",
+              "type": "string"
+            },
+            {
+              "id": "product-name",
+              "name": "product_name",
+              "value": "={{ $json.body.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "count",
+              "name": "count",
+              "value": "={{ $json.body.count || 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "target-audience",
+              "name": "target_audience",
+              "value": "={{ $json.body.target_audience || 'general' }}",
+              "type": "string"
+            },
+            {
+              "id": "price",
+              "name": "price",
+              "value": "={{ $json.body.price || 29.99 }}",
+              "type": "number"
+            },
+            {
+              "id": "shopify-store",
+              "name": "shopify_store",
+              "value": "={{ $json.body.shopify_store }}",
+              "type": "string"
+            },
+            {
+              "id": "auto-publish",
+              "name": "auto_publish",
+              "value": "={{ $json.body.auto_publish || false }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://juozas.app.n8n.cloud/webhook/pod-designs",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"theme\": {{ $json.theme }},\n  \"count\": {{ $json.count }},\n  \"style\": \"modern, clean, print-ready\"\n}",
+        "options": {}
+      },
+      "id": "call-design-generator",
+      "name": "Step 1: Generate Design",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "design-url",
+              "name": "design_url",
+              "value": "={{ $json[0].image_url }}",
+              "type": "string"
+            },
+            {
+              "id": "design-prompt",
+              "name": "design_prompt",
+              "value": "={{ $json[0].prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "design-id",
+              "name": "design_id",
+              "value": "={{ $json[0].design_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-design-data",
+      "name": "Extract Design Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://juozas.app.n8n.cloud/webhook/marketing-auto",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_name\": {{ $('Parse Input').item.json.product_name }},\n  \"product_description\": {{ $json.design_prompt }},\n  \"image_url\": {{ $json.design_url }},\n  \"target_audience\": {{ $('Parse Input').item.json.target_audience }},\n  \"platforms\": [\"instagram\", \"facebook\"],\n  \"campaign_type\": \"product_launch\"\n}",
+        "options": {}
+      },
+      "id": "call-marketing-agent",
+      "name": "Step 2: Generate Marketing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "marketing-content",
+              "name": "marketing_content",
+              "value": "={{ $json.marketing_package }}",
+              "type": "object"
+            },
+            {
+              "id": "session-id",
+              "name": "marketing_session_id",
+              "value": "={{ $json.session_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-marketing-data",
+      "name": "Extract Marketing Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://juozas.app.n8n.cloud/webhook/shopify-upload",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_name\": {{ $('Parse Input').item.json.product_name }},\n  \"product_description\": {{ $json.marketing_content.content.email_body }},\n  \"design_url\": {{ $('Extract Design Data').item.json.design_url }},\n  \"price\": {{ $('Parse Input').item.json.price }},\n  \"category\": \"Apparel\",\n  \"tags\": {{ $json.marketing_content.social_media.instagram.hashtags }},\n  \"shopify_store\": {{ $('Parse Input').item.json.shopify_store }}\n}",
+        "options": {}
+      },
+      "id": "call-shopify-integration",
+      "name": "Step 3: Upload to Shopify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "shopify-data",
+              "name": "shopify_data",
+              "value": "={{ $json.shopify }}",
+              "type": "object"
+            },
+            {
+              "id": "printful-data",
+              "name": "printful_data",
+              "value": "={{ $json.printful }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-shopify-data",
+      "name": "Extract Shopify Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"COMPLETE\",\n  \"message\": \"POD product created end-to-end\",\n  \"session_id\": \"POD-{{ $now.toUnixInteger() }}\",\n  \"timeline\": {\n    \"total_time_seconds\": \"35-45\",\n    \"design\": \"12s\",\n    \"marketing\": \"12s\",\n    \"shopify\": \"15s\"\n  },\n  \"results\": {\n    \"design\": {\n      \"design_id\": {{ $('Extract Design Data').item.json.design_id }},\n      \"image_url\": {{ $('Extract Design Data').item.json.design_url }},\n      \"cost_usd\": 0.04\n    },\n    \"marketing\": {\n      \"instagram\": {{ $('Extract Marketing Data').item.json.marketing_content.social_media.instagram }},\n      \"facebook\": {{ $('Extract Marketing Data').item.json.marketing_content.social_media.facebook }},\n      \"email\": {{ $('Extract Marketing Data').item.json.marketing_content.email }},\n      \"ads\": {{ $('Extract Marketing Data').item.json.marketing_content.ads }},\n      \"cost_usd\": 0.03\n    },\n    \"shopify\": {\n      \"product_id\": {{ $json.shopify_data.product_id }},\n      \"admin_url\": {{ $json.shopify_data.admin_url }},\n      \"public_url\": {{ $json.shopify_data.public_url }},\n      \"status\": {{ $json.shopify_data.status }},\n      \"printful_synced\": {{ $json.printful_data.synced }}\n    }\n  },\n  \"costs\": {\n    \"design_generation\": \"$0.04\",\n    \"marketing_content\": \"$0.03\",\n    \"shopify_api\": \"$0.00\",\n    \"total\": \"$0.07\"\n  },\n  \"next_steps\": [\n    \"Review product in Shopify admin: {{ $json.shopify_data.admin_url }}\",\n    \"Post Instagram content: {{ $('Extract Marketing Data').item.json.marketing_content.social_media.instagram.caption }}\",\n    \"Post Facebook content\",\n    \"Send email campaign\",\n    \"Launch Facebook/Instagram ads\",\n    \"Publish Shopify product when ready\"\n  ],\n  \"automation_summary\": {\n    \"total_automation\": \"95%\",\n    \"manual_steps\": [\n      \"Review & publish Shopify product (2 min)\",\n      \"Post social media content (5 min)\",\n      \"Launch ads (3 min)\"\n    ],\n    \"manual_time_minutes\": 10\n  },\n  \"ready_to_sell\": false,\n  \"ready_to_market\": true\n}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response - Complete Pipeline",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Step 1: Generate Design",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 1: Generate Design": {
+      "main": [
+        [
+          {
+            "node": "Extract Design Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Design Data": {
+      "main": [
+        [
+          {
+            "node": "Step 2: Generate Marketing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 2: Generate Marketing": {
+      "main": [
+        [
+          {
+            "node": "Extract Marketing Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Marketing Data": {
+      "main": [
+        [
+          {
+            "node": "Step 3: Upload to Shopify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 3: Upload to Shopify": {
+      "main": [
+        [
+          {
+            "node": "Extract Shopify Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Shopify Data": {
+      "main": [
+        [
+          {
+            "node": "Response - Complete Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}
