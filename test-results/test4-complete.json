@@ -1,0 +1,1 @@
+{"status":"COMPLETE","message":"Full POD pipeline ready - activate individual workflows first","next_steps":["1. Test /webhook/pod-designs","2. Test /webhook/marketing-auto","3. Test /webhook/shopify-upload","4. Then use this complete pipeline"]}
